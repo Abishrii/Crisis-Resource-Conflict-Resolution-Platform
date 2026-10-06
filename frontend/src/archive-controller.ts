@@ -26,9 +26,17 @@ export function initializeArchive() {
     abort.abort();
     timers.forEach((id) => window.clearTimeout(id));
     frames.forEach((id) => window.cancelAnimationFrame(id));
-    document.body.classList.remove('menu-open', 'gridview', 'lit', 'panelopen', 'dragging', 'deep', 'has-pointer');
+    document.body.classList.remove('menu-open', 'gridview', 'lit', 'panelopen', 'dragging', 'deep', 'has-pointer', 'ws-drawer-open', 'intro-active', 'finder-open');
     document.body.style.overflow = '';
     document.documentElement.style.overflow = '';
+    const intro = document.getElementById('intro');
+    if (intro) { intro.hidden = true; intro.inert = true; intro.classList.remove('is-open', 'is-closing', 'has-video'); }
+    const film = document.getElementById('film');
+    if (film) { try { film.pause(); } catch {} }
+    const experience = document.getElementById('experience');
+    if (experience) experience.inert = false;
+    delete window.__resqsyncReplayIntro;
+    delete window.__resqsyncSkipIntro;
     window.__resqsyncReady = false;
   };
 
@@ -52,9 +60,9 @@ export function initializeArchive() {
 
     const shots = [
       {
-        image:"/images/india-flood-response.jpg", title:"When the Water Rises", place:"Kerala · Crisis management",
-        note:"An illustrative Indian flood response. Create an incident, track its severity and status, and keep a geographic picture of the response. A shared event timeline helps the team arriving next understand what has already changed. This is an AI-generated illustration, not a real incident.",
-        alt:"AI-generated illustration of an Indian rescue team guiding a boat through a flooded Kerala street", credit:"ResQSync / AI-generated illustration", generated:true, source:"/images/india-flood-response.jpg",
+        image:"https://images.pexels.com/photos/17935458/pexels-photo-17935458.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200", title:"When the water reaches the door", place:"Bengal delta · Evacuation",
+        note:"Families wade out as floodwater takes the village. Evacuation requests like this are exactly what ResQSync routes: who needs help, how many people, and which team is closest.",
+        alt:"Women and children wade through floodwater in a village in Bengal", credit:"Kuntal Biswas / Pexels", source:"https://www.pexels.com/photo/women-wearing-traditional-clothing-standing-with-kids-in-a-flooded-village-17935458/",
       },
       {
         image:"https://images.pexels.com/photos/17609960/pexels-photo-17609960.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
@@ -63,9 +71,9 @@ export function initializeArchive() {
         alt:"A rickshaw navigating a flooded street in New Delhi", credit:"Shantum Singh", source:"https://www.pexels.com/photo/washing-the-rickshaw-with-flood-water-17609960/",
       },
       {
-        image:"/images/india-fire-response.jpg", title:"Ready Before the Siren", place:"Mumbai · Resource management",
-        note:"An inventory is useful only when capabilities and availability stay attached to each resource. Track crews, vehicles, supplies, facilities, and maintenance before assigning them to an incident. This fictional fire-response scene is AI-generated and has no agency affiliation.",
-        alt:"AI-generated illustration of Indian firefighters preparing a fire engine in Mumbai", credit:"ResQSync / AI-generated illustration", generated:true, source:"/images/india-fire-response.jpg",
+        image:"https://images.pexels.com/photos/5965109/pexels-photo-5965109.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200", title:"Ready before the siren", place:"Fire brigade · Staging",
+        note:"A firefighter checks the engine bay before the call comes in. Resource management means knowing what every vehicle carries and whether it is serviceable before an incident claims it.",
+        alt:"A firefighter arranges equipment inside a fire engine compartment", credit:"Anna Shvets / Pexels", source:"https://www.pexels.com/photo/firefighter-with-fire-engine-equipment-5965109/",
       },
       {
         image:"https://images.pexels.com/photos/28867945/pexels-photo-28867945.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
@@ -80,9 +88,9 @@ export function initializeArchive() {
         alt:"Clouds and mountains surrounding Kedarnath Valley in Uttarakhand", credit:"Soubhagya Maharana", source:"https://www.pexels.com/photo/mountains-around-valley-18359764/",
       },
       {
-        image:"/images/india-medical-response.jpg", title:"Capacity, Connected", place:"Bengaluru · Medical resources",
-        note:"A trauma team, an ambulance, and a ventilator are different resources. Keep each capability visible, track its assignment, and flag overlapping demand. This AI-generated medical-response illustration does not depict a hospital partner or an actual patient.",
-        alt:"AI-generated illustration of two Indian paramedics preparing a stretcher beside an ambulance", credit:"ResQSync / AI-generated illustration", generated:true, source:"/images/india-medical-response.jpg",
+        image:"https://images.pexels.com/photos/6519847/pexels-photo-6519847.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200", title:"The ambulance pool", place:"EMS · Ready units",
+        note:"An ambulance with its doors open is capacity waiting for a decision. Track each unit's status so the coordinator knows what is free, what is en route, and what is already committed.",
+        alt:"A blue ambulance parked at the roadside with its rear doors open", credit:"RDNE Stock project / Pexels", source:"https://www.pexels.com/photo/blue-and-yellow-ambulance-6519847/",
       },
       {
         image:"https://images.pexels.com/photos/29685486/pexels-photo-29685486.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
@@ -97,9 +105,9 @@ export function initializeArchive() {
         alt:"Floodwater beneath a bridge in New Delhi", credit:"Shantum Singh", source:"https://www.pexels.com/photo/a-flooded-area-17609963/",
       },
       {
-        image:"/images/india-relief-supplies.jpg", title:"What Is Still Available", place:"Assam · Supplies and logistics",
-        note:"Know which relief stocks are available, reserved, or already assigned. Capability profiles, usage history, and maintenance logs support the next request as well as the current one. This relief-logistics scene is an AI-generated illustration.",
-        alt:"AI-generated illustration of Indian volunteers inventorying relief supplies in Assam", credit:"ResQSync / AI-generated illustration", generated:true, source:"/images/india-relief-supplies.jpg",
+        image:"https://images.pexels.com/photos/6646871/pexels-photo-6646871.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200", title:"Sorting the relief store", place:"Volunteers · Supplies",
+        note:"Volunteers sort medicine and food into boxes for distribution. Supply tracking keeps that work honest: what is packed, what is promised, and what is still on the shelf.",
+        alt:"Two volunteers sort medicine and food supplies into boxes outdoors", credit:"RDNE Stock project / Pexels", source:"https://www.pexels.com/photo/a-man-and-a-woman-packing-relief-goods-in-boxes-6646871/",
       },
       {
         image:"https://images.pexels.com/photos/33329470/pexels-photo-33329470.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
@@ -132,9 +140,9 @@ export function initializeArchive() {
         alt:"A market street on a rainy day in Raipur, India", credit:"Shubham Thakur", source:"https://www.pexels.com/photo/rainy-day-in-raipur-market-street-scene-39332347/",
       },
       {
-        image:"/images/india-command-center.jpg", title:"People Make the Call", place:"India · Decision support",
-        note:"The engine compares competing requests. Authorized people approve the recommendation, negotiate alternatives, or override it with a recorded reason. This AI-generated control-room illustration does not depict an actual government facility.",
-        alt:"AI-generated illustration of Indian emergency coordinators reviewing operational screens", credit:"ResQSync / AI-generated illustration", generated:true, source:"/images/india-command-center.jpg",
+        image:"https://images.pexels.com/photos/5964975/pexels-photo-5964975.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200", title:"People make the call", place:"Command · The decision",
+        note:"Two crew leads talk through the next move beside the engine. Software can rank the options, but the allocation is still a human decision, made with the picture in front of them.",
+        alt:"Two firefighters in full gear discuss strategy beside a fire engine", credit:"Anna Shvets / Pexels", source:"https://www.pexels.com/photo/firefighters-talking-by-fire-engine-5964975/",
       },
       {
         image:"https://images.pexels.com/photos/35356944/pexels-photo-35356944.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
@@ -246,6 +254,7 @@ export function initializeArchive() {
     const stage = $("#stage");
     const world = $("#world");
     const headline = $("#headline");
+    const stageGlow = $(".stage-glow");
     const cards = $$(".card");
     const grid = $("#grid");
     const gridImages = $$("#grid .rows img");
@@ -257,6 +266,9 @@ export function initializeArchive() {
     const plate = $(".plate");
     const panel = $("#panel");
     const dot = $("#dot");
+    const intro = $("#intro");
+    const film = $("#film");
+    const introProgress = $("#introProgress");
     const reduced = matchMedia("(prefers-reduced-motion: reduce)");
     const coarse = matchMedia("(pointer: coarse)");
     const fine = matchMedia("(hover: hover) and (pointer: fine)");
@@ -270,10 +282,14 @@ export function initializeArchive() {
     let menuOpen = false, gridOpen = false, litOpen = false, panelOpen = false;
     let focused = -1, currentShot = -1, sourceNode = null, lightboxReturn = null, panelReturn = null;
     let mediaToken = 0, closeTimer = 0, lightboxFrame = 0;
+    let introActive = false, introStartedAt = 0, introDuration = 5200, introGeneration = 0;
+    let introEndTimer = 0, introFallbackTimer = 0, introHideTimer = 0;
+    let introReturn = null;
     let locked = false, parkedScroll = 0, deep = false;
     const state = { spin:0, tilt:-4, camZ:0, dragX:0, dragY:0, velX:0, velY:0, dragging:false,autoRotate:!reduced.matches };
     let pointer = null;
     let lastFrame = performance.now(), spinResumeAt = 0;
+    let sphereBorn = 0, lastPlacedR = -1;
     const cursor = { x:innerWidth / 2, y:innerHeight / 2, tx:innerWidth / 2, ty:innerHeight / 2, seen:false };
 
     body.classList.remove("locked");
@@ -283,13 +299,13 @@ export function initializeArchive() {
     body.style.overflow = "";
 
     const featureModules = [
-      { id:"crises",name:"Crisis Management",label:"Crises",number:"01",description:"Track incidents, update their status, and see the latest actions in each location.",features:["Crisis event creation and tracking","Local instant status updates: active, escalating, resolved","Severity levels and incident categories","Timeline of events and actions","Geographic coordinates, plotted locations, and map links"] },
-      { id:"resources",name:"Resource Management",label:"Resources",number:"02",description:"Check available crews, equipment, supplies, and facilities. Keep assignments and maintenance records up to date.",features:["Personnel, equipment, supplies, and facilities inventory","Availability and assigned-capacity tracking","Resource allocation to active crises","Capability profiles and specifications","Usage history and maintenance logs"] },
-      { id:"conflicts",name:"Conflict Resolution",label:"Allocations",number:"03",description:"Review requests for the same resources. Approve a recommendation or record why a different allocation is needed.",features:["Automatic detection of competing resource requests","Transparent severity / response-time priority scoring","Manual override and approval workflows","Local stakeholder notification records","Negotiation, compromise, and decision history"] },
-      { id:"users",name:"Users & Roles",label:"People & access",number:"04",description:"Manage the sample team, check each role's permissions, and review the activity log.",features:["Admin, crisis manager, resource coordinator, and viewer roles","Multi-organization and agency profiles","Role-based action gating in the demo","Authentication and server authorization requirements explained","Activity audit logs and local invitation previews"] },
-      { id:"collaboration",name:"Communication & Collaboration",label:"Messages & files",number:"05",description:"Post an update, add a note to an incident, or attach a document to the conversation.",features:["Local messaging with updates across same-browser tabs","Email, SMS, and push preferences (delivery not connected)","Comment threads attached to crises and decisions","Document attachment metadata and session-local file downloads","Local in-app stakeholder notifications"] },
-      { id:"analytics",name:"Analytics & Reporting",label:"Reports",number:"06",description:"Review resource use and recorded response times. Download the sample records as a PDF or Excel-compatible file.",features:["Dashboard with calculated key metrics","Resource utilization reports by resource type","Response time analytics from sample records","Historical incident trends and date-range selection","Native PDF download and Excel-compatible XML export"] },
-      { id:"decision",name:"Decision Support",label:"Scenario planning",number:"07",description:"Change the available stock and priority weights to compare an allocation's coverage and estimated cost.",features:["Automated resource-allocation recommendation heuristic","Impact assessment through covered and uncovered demand","Scenario simulation with adjustable capacity and priority weights","Indicative INR cost and coverage analysis","Saved simulations with an audit trail"] },
+      { id:"crises",name:"Crisis Management",label:"Crises",number:"01",description:"Keep track of what's happening, where, and how serious it is.",features:["Crisis event creation and tracking","Local instant status updates: active, escalating, resolved","Severity levels and incident categories","Timeline of events and actions","Geographic coordinates, plotted locations, and map links"] },
+      { id:"resources",name:"Resource Management",label:"Resources",number:"02",description:"See what you have, what's free, and what's already committed.",features:["Personnel, equipment, supplies, and facilities inventory","Availability and assigned-capacity tracking","Resource allocation to active crises","Capability profiles and specifications","Usage history and maintenance logs"] },
+      { id:"conflicts",name:"Conflict Resolution",label:"Allocations",number:"03",description:"When two incidents need the same thing, decide who gets it first.",features:["Automatic detection of competing resource requests","Transparent severity / response-time priority scoring","Manual override and approval workflows","Local stakeholder notification records","Negotiation, compromise, and decision history"] },
+      { id:"users",name:"Users & Roles",label:"People & access",number:"04",description:"Who's on the team, and what each person can do.",features:["Admin, crisis manager, resource coordinator, and viewer roles","Multi-organization and agency profiles","Role-based action gating in the demo","Authentication and server authorization requirements explained","Activity audit logs and local invitation previews"] },
+      { id:"collaboration",name:"Communication & Collaboration",label:"Messages & files",number:"05",description:"Updates, notes, and files, kept with the incident they belong to.",features:["Local messaging with updates across same-browser tabs","Email, SMS, and push preferences (delivery not connected)","Comment threads attached to crises and decisions","Document attachment metadata and session-local file downloads","Local in-app stakeholder notifications"] },
+      { id:"analytics",name:"Analytics & Reporting",label:"Reports",number:"06",description:"How resources are being used, and how quickly teams respond.",features:["Dashboard with calculated key metrics","Resource utilization reports by resource type","Response time analytics from sample records","Historical incident trends and date-range selection","Native PDF download and Excel-compatible XML export"] },
+      { id:"decision",name:"Decision Support",label:"Scenario planning",number:"07",description:"Try an allocation on paper before you commit to it.",features:["Automated resource-allocation recommendation heuristic","Impact assessment through covered and uncovered demand","Scenario simulation with adjustable capacity and priority weights","Indicative INR cost and coverage analysis","Saved simulations with an audit trail"] },
     ];
     const moduleIds = ["overview",...featureModules.map((module) => module.id)];
     const roleNames = { admin:"Admin","crisis-manager":"Crisis manager","resource-coordinator":"Resource coordinator",viewer:"Viewer" };
@@ -519,14 +535,14 @@ export function initializeArchive() {
     function conflictsView() {
       const pools = pressuredPools();
       const chosen = resourceById(ui.conflictResource) || pools[0] || db.resources[0];
-      return `<div class="workspace-tools"><div><span class="state-label critical">${pools.length} pools under demand pressure</span></div><div><button type="button" class="work-btn" data-toggle-form="newRequest"${disabled("allocate")}>Add a competing request +</button><button type="button" class="work-btn" data-recalculate>Recalculate priorities ↻</button></div></div><p class="demo-notice">Priority score = severity (65%) + sample response-time readiness (35%). This deterministic demonstration is not medical triage. Available inventory constrains every approved allocation.</p><form class="work-form inline-form" id="newRequest" data-work-form="request" hidden><h3>Add a resource request</h3><div class="work-form-grid"><label>Resource pool<select name="resourceId" class="work-select" required>${resourceOptions(chosen.id)}</select></label><label>Active crisis<select name="crisisId" class="work-select" required>${crisisOptions()}</select></label><label>Additional requested quantity<input name="quantity" class="work-input" type="number" min="1" max="1000000" step="1" value="2" required></label><label>Reason<input name="reason" class="work-input" required maxlength="200" placeholder="Unmet operational demand"></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Record request</button><button type="button" class="work-btn" data-toggle-form="newRequest">Cancel</button></div></form>${pools.length ? pools.map((resource) => {
+      return `<div class="workspace-tools"><div><span class="state-label critical">${pools.length} pools under demand pressure</span></div><div><button type="button" class="work-btn" data-toggle-form="newRequest"${disabled("allocate")}>Add a competing request +</button><button type="button" class="work-btn" data-recalculate>Recalculate priorities ↻</button></div></div><p class="demo-notice">Suggestions are ranked by severity (65%) and sample response time (35%), and never exceed what's actually available. A person always makes the final call.</p><form class="work-form inline-form" id="newRequest" data-work-form="request" hidden><h3>Add a resource request</h3><div class="work-form-grid"><label>Resource pool<select name="resourceId" class="work-select" required>${resourceOptions(chosen.id)}</select></label><label>Active crisis<select name="crisisId" class="work-select" required>${crisisOptions()}</select></label><label>Additional requested quantity<input name="quantity" class="work-input" type="number" min="1" max="1000000" step="1" value="2" required></label><label>Reason<input name="reason" class="work-input" required maxlength="200" placeholder="Unmet operational demand"></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Record request</button><button type="button" class="work-btn" data-toggle-form="newRequest">Cancel</button></div></form>${pools.length ? pools.map((resource) => {
         const plan = recommendation(resource), demand = plan.reduce((sum,item) => sum+item.quantity,0);
         return `<section class="conflict-item"><div class="conflict-top"><div><h3>${esc(resource.name)}</h3><p>${fmt(demand)} additional ${esc(resource.unit)} requested / ${fmt(available(resource))} available / ${plan.length > 1 ? "competing incidents" : "uncovered demand"}</p></div><button type="button" class="work-btn primary" data-approve-pool="${esc(resource.id)}"${!has("approve") || available(resource) === 0 ? " disabled" : ""}>Approve recommendation ↗</button></div>${plan.map((item) => `<div class="allocation-line"><span>${esc(item.crisis.city)} / ${esc(item.crisis.title)}</span><small>Score ${item.score}</small><div class="capacity-bar"><i style="width:${item.score}%"></i></div><b>${item.allocation} / ${item.quantity}</b></div>`).join("")}<p class="map-footnote">Proposed assignment / requested quantity. Shortfall: ${fmt(Math.max(0,demand-available(resource)))} ${esc(resource.unit)}. ${resource.maintenance ? "This pool is unavailable for maintenance." : "A manager or admin must approve."}</p></section>`;
-      }).join("") : '<p class="work-empty">No current resource shortfalls. Add competing requests to explore the workflow.</p>'}<h3 class="section-title">Manual override &amp; negotiation</h3><form class="work-form inline-form" data-work-form="override"><div class="work-form-grid"><label>Resource pool<select name="resourceId" class="work-select" required>${resourceOptions(chosen.id)}</select></label><label>Active crisis<select name="crisisId" class="work-select" required>${crisisOptions()}</select></label><label>Quantity to allocate<input name="quantity" class="work-input" type="number" min="1" max="1000000" step="1" value="1" required></label><label>Recorded override reason<input name="reason" class="work-input" required minlength="8" maxlength="250" placeholder="Explain why the recommendation should change"></label></div><div class="form-actions"><button type="submit" class="work-btn"${disabled("approve")}>Record override &amp; allocate</button><p>Capacity limits still apply.</p></div></form><form class="work-form" data-work-form="negotiation"><div class="work-form-grid"><label>Resource<select name="resourceId" class="work-select">${resourceOptions(chosen.id)}</select></label><label>Compromise proposal<input name="proposal" class="work-input" required minlength="5" maxlength="350" placeholder="Share capacity now, arrange partner backfill later..."></label></div><div class="form-actions"><button type="submit" class="work-btn"${disabled("allocate")}>Log negotiation proposal</button></div></form>${db.negotiations.length ? `<ul class="decision-list" style="margin-top:20px">${db.negotiations.slice(0,6).map((entry) => `<li><small>${esc(when(entry.at))} IST / ${esc(entry.actor)} / ${esc(resourceById(entry.resourceId)?.name)}</small>${esc(entry.proposal)}<div class="detail-controls">${statusLabel(entry.status)}${entry.status === "pending" ? `<button type="button" class="work-btn" data-agree-negotiation="${esc(entry.id)}"${disabled("approve")}>Record agreement</button>` : ""}</div></li>`).join("")}</ul>` : ""}<h3 class="section-title">Decision record</h3>${db.decisions.length ? `<ul class="decision-list">${db.decisions.slice(0,8).map((decision) => `<li><small>${esc(when(decision.at))} IST / ${esc(decision.actor)} / ${esc(decision.type)}</small>${esc(decision.text)}</li>`).join("")}</ul>` : '<p class="work-empty">Approve a recommendation or record an override to create a decision record and local stakeholder notice.</p>'}`;
+      }).join("") : '<p class="work-empty">No current resource shortfalls. Add competing requests to explore the workflow.</p>'}<details class="ws-collapse"><summary>Need something different?<small>Override the suggestion or propose a compromise</small><i aria-hidden="true">+</i></summary><form class="work-form" data-work-form="override"><div class="work-form-grid"><label>Resource pool<select name="resourceId" class="work-select" required>${resourceOptions(chosen.id)}</select></label><label>Active crisis<select name="crisisId" class="work-select" required>${crisisOptions()}</select></label><label>Quantity to allocate<input name="quantity" class="work-input" type="number" min="1" max="1000000" step="1" value="1" required></label><label>Recorded override reason<input name="reason" class="work-input" required minlength="8" maxlength="250" placeholder="Explain why the recommendation should change"></label></div><div class="form-actions"><button type="submit" class="work-btn"${disabled("approve")}>Record override &amp; allocate</button><p>Capacity limits still apply.</p></div></form><form class="work-form" data-work-form="negotiation"><div class="work-form-grid"><label>Resource<select name="resourceId" class="work-select">${resourceOptions(chosen.id)}</select></label><label>Compromise proposal<input name="proposal" class="work-input" required minlength="5" maxlength="350" placeholder="Share capacity now, arrange partner backfill later..."></label></div><div class="form-actions"><button type="submit" class="work-btn"${disabled("allocate")}>Log negotiation proposal</button></div></form></details>${db.negotiations.length ? `<ul class="decision-list" style="margin-top:20px">${db.negotiations.slice(0,6).map((entry) => `<li><small>${esc(when(entry.at))} IST / ${esc(entry.actor)} / ${esc(resourceById(entry.resourceId)?.name)}</small>${esc(entry.proposal)}<div class="detail-controls">${statusLabel(entry.status)}${entry.status === "pending" ? `<button type="button" class="work-btn" data-agree-negotiation="${esc(entry.id)}"${disabled("approve")}>Record agreement</button>` : ""}</div></li>`).join("")}</ul>` : ""}<h3 class="section-title">Decision record</h3>${db.decisions.length ? `<ul class="decision-list">${db.decisions.slice(0,8).map((decision) => `<li><small>${esc(when(decision.at))} IST / ${esc(decision.actor)} / ${esc(decision.type)}</small>${esc(decision.text)}</li>`).join("")}</ul>` : '<p class="work-empty">Approve a recommendation or record an override to create a decision record and local stakeholder notice.</p>'}`;
     }
 
     function usersView() {
-      return `<div class="workspace-tools"><div><span class="module-count">${db.users.length} demo users / ${new Set(db.users.map((user) => user.organization)).size} organizations</span></div><button type="button" class="work-btn primary" data-toggle-form="newUser"${disabled("users")}>Prepare local invitation +</button></div><p class="workspace-warning">Identity provider not connected. The role selector previews interface permissions only; it is not authentication or secure authorization. A real deployment needs server-enforced identity, organization isolation, and access policies.</p><form class="work-form inline-form" id="newUser" data-work-form="user" hidden><h3>Prepare a demo invitation</h3><div class="work-form-grid"><label>Name<input name="name" class="work-input" required maxlength="65" placeholder="Priya Sen"></label><label>Email<input name="email" class="work-input" type="email" required maxlength="120" placeholder="priya@example.org"></label><label>Organization<input name="organization" class="work-input" required maxlength="75" placeholder="Training relief collective"></label><label>Role<select name="role" class="work-select">${roleOptions("viewer")}</select></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Create local invitation record</button><button type="button" class="work-btn" data-toggle-form="newUser">Cancel</button><p>No email is sent. Use fictional identities.</p></div></form><div class="table-scroll"><table class="work-table"><thead><tr><th>User</th><th>Organization</th><th>Role</th><th>Access status</th></tr></thead><tbody>${db.users.map((user) => `<tr><td>${esc(user.name)}<small>${esc(user.email)}</small></td><td>${esc(user.organization)}</td><td><select class="work-select" data-user-role="${esc(user.id)}" aria-label="Demo role for ${esc(user.name)}"${disabled("users")}>${roleOptions(user.role)}</select></td><td>${esc(user.status)}</td></tr>`).join("")}</tbody></table></div><h3 class="section-title">Role-based access model</h3><div class="table-scroll"><table class="role-matrix"><thead><tr><th>Action</th><th>Admin</th><th>Crisis manager</th><th>Resource coordinator</th><th>Viewer</th></tr></thead><tbody><tr><td>View incidents &amp; reports</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr><tr><td>Create &amp; update crises</td><td>Yes</td><td>Yes</td><td>—</td><td>—</td></tr><tr><td>Edit inventory &amp; maintenance</td><td>Yes</td><td>—</td><td>Yes</td><td>—</td></tr><tr><td>Assign available resources</td><td>Yes</td><td>Yes</td><td>Yes</td><td>—</td></tr><tr><td>Approve or override priorities</td><td>Yes</td><td>Yes</td><td>—</td><td>—</td></tr><tr><td>Manage users &amp; roles</td><td>Yes</td><td>—</td><td>—</td><td>—</td></tr></tbody></table></div><h3 class="section-title">Activity audit log</h3>${auditList(db.audit.slice(0,12))}`;
+      return `<div class="workspace-tools"><div><span class="module-count">${db.users.length} demo users / ${new Set(db.users.map((user) => user.organization)).size} organizations</span></div><button type="button" class="work-btn primary" data-toggle-form="newUser"${disabled("users")}>Prepare local invitation +</button></div><p class="workspace-warning">The "View as" switch only previews what each role can see — it isn't a real sign-in. A live deployment would use your organization's own accounts.</p><form class="work-form inline-form" id="newUser" data-work-form="user" hidden><h3>Prepare a demo invitation</h3><div class="work-form-grid"><label>Name<input name="name" class="work-input" required maxlength="65" placeholder="Priya Sen"></label><label>Email<input name="email" class="work-input" type="email" required maxlength="120" placeholder="priya@example.org"></label><label>Organization<input name="organization" class="work-input" required maxlength="75" placeholder="Training relief collective"></label><label>Role<select name="role" class="work-select">${roleOptions("viewer")}</select></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Create local invitation record</button><button type="button" class="work-btn" data-toggle-form="newUser">Cancel</button><p>No email is sent. Use fictional identities.</p></div></form><div class="table-scroll"><table class="work-table"><thead><tr><th>User</th><th>Organization</th><th>Role</th><th>Access status</th></tr></thead><tbody>${db.users.map((user) => `<tr><td>${esc(user.name)}<small>${esc(user.email)}</small></td><td>${esc(user.organization)}</td><td><select class="work-select" data-user-role="${esc(user.id)}" aria-label="Demo role for ${esc(user.name)}"${disabled("users")}>${roleOptions(user.role)}</select></td><td>${esc(user.status)}</td></tr>`).join("")}</tbody></table></div><details class="ws-collapse"><summary>What each role can do<i aria-hidden="true">+</i></summary><div class="table-scroll"><table class="role-matrix"><thead><tr><th>Action</th><th>Admin</th><th>Crisis manager</th><th>Resource coordinator</th><th>Viewer</th></tr></thead><tbody><tr><td>View incidents &amp; reports</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr><tr><td>Create &amp; update crises</td><td>Yes</td><td>Yes</td><td>—</td><td>—</td></tr><tr><td>Edit inventory &amp; maintenance</td><td>Yes</td><td>—</td><td>Yes</td><td>—</td></tr><tr><td>Assign available resources</td><td>Yes</td><td>Yes</td><td>Yes</td><td>—</td></tr><tr><td>Approve or override priorities</td><td>Yes</td><td>Yes</td><td>—</td><td>—</td></tr><tr><td>Manage users &amp; roles</td><td>Yes</td><td>—</td><td>—</td><td>—</td></tr></tbody></table></div></details><h3 class="section-title">Activity audit log</h3>${auditList(db.audit.slice(0,12))}`;
     }
 
     function channelOptions(chosen) {
@@ -577,7 +593,7 @@ export function initializeArchive() {
 
     function decisionView() {
       const initial = resourceById("R-VENT") || db.resources[0];
-      return `<p class="demo-notice">This rule-based heuristic is not AI clinical triage. Severity and sample readiness weights are inspectable. Simulations never dispatch resources, predict lives saved, or modify actual inventory.</p><form class="work-form" data-work-form="simulation"><div class="scenario-controls"><label>Resource pool<select id="simulationPool" name="resourceId" class="work-select">${resourceOptions(initial.id)}</select></label><label>Scenario pool capacity<input name="capacity" id="simulationCapacity" type="number" min="0" max="1000000" step="1" value="${available(initial)}" required class="work-input"></label><label>Severity weight / <output id="severityWeightLabel">65%</output><input name="weight" id="severityWeight" type="range" min="20" max="90" step="5" value="65"></label><label>Cost per resource per day / INR<input name="cost" id="simulationCost" class="work-input" type="number" min="0" max="10000000" step="1" value="${initial.cost}" required></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Run scenario ↗</button><p>The remaining score weight uses sample response-time readiness.</p></div></form><div id="simulationResult" class="scenario-result">${ui.simulation ? simulationResult(ui.simulation) : '<p class="work-empty">Adjust a scenario and run it to see proposed allocations, uncovered demand, and an indicative cost comparison.</p>'}</div><h3 class="section-title">Saved scenario history</h3>${db.simulations.length ? `<ul class="decision-list">${db.simulations.slice(0,6).map((simulation) => `<li><small>${esc(when(simulation.at))} IST / ${esc(simulation.actor)}</small>${esc(simulation.resourceName)} / ${simulation.capacity} available / ${simulation.covered} proposed / ${simulation.demand-simulation.covered} uncovered / ${money(simulation.covered*simulation.cost)} indicative allocation cost</li>`).join("")}</ul>` : '<p class="work-empty">No simulations saved. Save a run to record the assumptions and result.</p>'}`;
+      return `<p class="demo-notice">Scenarios are a safe sandbox: nothing here moves real inventory or dispatches anyone. Adjust the numbers and see how an allocation would land.</p><form class="work-form" data-work-form="simulation"><div class="scenario-controls"><label>Resource pool<select id="simulationPool" name="resourceId" class="work-select">${resourceOptions(initial.id)}</select></label><label>Scenario pool capacity<input name="capacity" id="simulationCapacity" type="number" min="0" max="1000000" step="1" value="${available(initial)}" required class="work-input"></label><label>Severity weight / <output id="severityWeightLabel">65%</output><input name="weight" id="severityWeight" type="range" min="20" max="90" step="5" value="65"></label><label>Cost per resource per day / INR<input name="cost" id="simulationCost" class="work-input" type="number" min="0" max="10000000" step="1" value="${initial.cost}" required></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Run scenario ↗</button><p>The remaining score weight uses sample response-time readiness.</p></div></form><div id="simulationResult" class="scenario-result">${ui.simulation ? simulationResult(ui.simulation) : '<p class="work-empty">Adjust a scenario and run it to see proposed allocations, uncovered demand, and an indicative cost comparison.</p>'}</div><details class="ws-collapse"><summary>Saved scenarios<i aria-hidden="true">+</i></summary>${db.simulations.length ? `<ul class="decision-list">${db.simulations.slice(0,6).map((simulation) => `<li><small>${esc(when(simulation.at))} IST / ${esc(simulation.actor)}</small>${esc(simulation.resourceName)} / ${simulation.capacity} available / ${simulation.covered} proposed / ${simulation.demand-simulation.covered} uncovered / ${money(simulation.covered*simulation.cost)} indicative allocation cost</li>`).join("")}</ul>` : '<p class="work-empty">Nothing saved yet. Run a scenario and save it to keep the assumptions alongside the result.</p>'}</details>`;
     }
     function simulationResult(simulation) {
       const uncovered = Math.max(0,simulation.demand-simulation.covered);
@@ -592,7 +608,7 @@ export function initializeArchive() {
       const focusedElement = document.activeElement, previousId = focusedElement?.id;
       const selectionStart = focusedElement?.selectionStart;
       const title = module ? module.label : "Overview";
-      const description = module ? module.description : "A quick look at current incidents, available resources, and recent decisions. Choose a tool below to get started.";
+      const description = module ? module.description : "Where things stand right now, and what needs a decision.";
       const position = moduleIds.indexOf(moduleId);
       const labelOf = (id) => id === "overview" ? "Overview" : featureModules.find((item) => item.id === id).label;
       const previous = position > 0 ? moduleIds[position - 1] : null;
@@ -1100,13 +1116,14 @@ export function initializeArchive() {
       html.style.setProperty("--cw", `${Math.round(Math.max(72, R * scale))}px`);
       perspective = small ? 620 : mobile ? 760 : width <= 900 ? 920 : 1150;
       html.style.setProperty("--persp", `${perspective}px`);
-      vectors.forEach((v) => {
-        v.element.style.transform = `translate3d(${v.x * R}px,${-v.y * R}px,${v.z * R}px) rotateY(${v.lon}deg) rotateX(${v.lat}deg)`;
-      });
+      lastPlacedR = -1;
     }
 
     function syncIsolation() {
-      const modal = menuOpen || litOpen || panelOpen;
+      const modal = introActive || menuOpen || litOpen || panelOpen;
+      $("#experience").inert = introActive;
+      intro.inert = !introActive;
+      intro.setAttribute("aria-hidden",String(!introActive));
       $("#skipPlatform").inert = !revealed || modal;
       stage.inert = !revealed || gridOpen || modal;
       grid.inert = !gridOpen || modal;
@@ -1116,8 +1133,8 @@ export function initializeArchive() {
       gridBtn.inert = !revealed || modal || (!deep && !gridOpen);
       $("#motionToggle").inert = !revealed || modal || gridOpen;
       $("header").inert = litOpen || panelOpen;
-      $(".platform-link").inert = modal;
       $(".cue").inert = !revealed || modal || deep || gridOpen;
+      const loginEl=$("#login"); if(loginEl){ loginEl.inert = !loginEl.classList.contains("is-open"); }
       menu.inert = !menuOpen;
       menu.setAttribute("aria-hidden", String(!menuOpen));
       lit.inert = !litOpen;
@@ -1127,7 +1144,7 @@ export function initializeArchive() {
     }
 
     function syncLock(forceUnlock = false) {
-      const next = !forceUnlock && (!revealed || menuOpen || gridOpen || litOpen || panelOpen);
+      const next = !forceUnlock && (introActive || !revealed || menuOpen || gridOpen || litOpen || panelOpen);
       if (next && !locked) parkedScroll = window.scrollY;
       html.style.overflow = next ? "hidden" : "";
       body.style.overflow = next ? "hidden" : "";
@@ -1138,8 +1155,9 @@ export function initializeArchive() {
     function renderFrame(now = performance.now()) {
       const elapsed = clamp(now-lastFrame,0,48);
       lastFrame = now;
-      if (revealed && state.autoRotate && !reduced.matches && !state.dragging && !pointer && !litOpen && !menuOpen && !panelOpen && !gridOpen && !document.hidden && now > spinResumeAt) state.spin = (state.spin + elapsed * .0055) % 360;
-      if (!state.dragging && !litOpen && !menuOpen && !panelOpen) {
+      if (introActive) introProgress.style.transform = `scaleX(${clamp((now-introStartedAt)/introDuration,0,1)})`;
+      if (revealed && state.autoRotate && !reduced.matches && !state.dragging && !pointer && !introActive && !litOpen && !menuOpen && !panelOpen && !gridOpen && !document.hidden && now > spinResumeAt) state.spin = (state.spin + elapsed * .0055) % 360;
+      if (!state.dragging && !introActive && !litOpen && !menuOpen && !panelOpen) {
         state.dragX += state.velX;
         state.dragY += state.velY;
         state.velX *= .94;
@@ -1155,6 +1173,21 @@ export function initializeArchive() {
       state.camZ += (targetZ - state.camZ) * .075;
       const sx = state.tilt + state.dragY, sy = state.spin + state.dragX;
       world.style.transform = `translateZ(${state.camZ}px) rotateY(${sy}deg) rotateX(${sx}deg)`;
+      // The photographs gather into a tight ball, then drift out and keep breathing.
+      if (!sphereBorn && !introActive) sphereBorn = now;
+      let grown = 1, breathScale = 1;
+      if (!reduced.matches) {
+        grown = sphereBorn ? clamp((now - sphereBorn) / 3600, 0, 1) : 0;
+        const eased = 1 - Math.pow(1 - grown, 3);
+        const age = now - sphereBorn;
+        const pulse = state.autoRotate && age > 3600 ? Math.cos((age - 3600) * Math.PI * 2 / 14000) * .11 * eased : 0;
+        breathScale = .16 + .84 * eased + pulse;
+      }
+      const effR = R * breathScale;
+      stageGlow.style.setProperty("--orbit-size",`${Math.max(72,effR * 2)}px`);
+      const writeCards = !reduced.matches || Math.abs(effR - lastPlacedR) > .05;
+      const bobAmp = reduced.matches || !state.autoRotate ? 0 : 4.5 * grown;
+      if (writeCards) lastPlacedR = effR;
       // Counter-rotation cancels the world rotation; only .inner centers the title.
       headline.style.transform = `rotateX(${-sx}deg) rotateY(${-sy}deg) translateZ(${R * .62}px)`;
       headline.style.opacity = String(Math.max(0, 1 - p * (currentTheme === "light" ? .35 : .55)));
@@ -1163,11 +1196,15 @@ export function initializeArchive() {
       const shade = 1 - Math.min(1, p * 1.6);
       const near = perspective * .66;
       vectors.forEach((v, index) => {
+        if (writeCards) {
+          const bob = bobAmp ? Math.sin(now * .0007 + index * 1.7) * bobAmp : 0;
+          v.element.style.transform = `translate3d(${v.x * effR}px,${-v.y * effR + bob}px,${v.z * effR}px) rotateY(${v.lon}deg) rotateX(${v.lat}deg)`;
+        }
         const zAfterPitch = -v.y * sinX + v.z * cosX;
         const zf = clamp(-v.x * sinY + zAfterPitch * cosY,-1,1);
         const base = .14 + .86 * Math.pow((zf + 1) / 2, .85);
         let dim = shade * (1 - base);
-        const absZ = zf * R + state.camZ;
+        const absZ = zf * effR + state.camZ;
         let fade = absZ > near ? Math.max(0, 1 - (absZ - near) / 190) : 1;
         if (litOpen) {
           dim = Math.min(1, dim + .78);
@@ -1299,6 +1336,7 @@ export function initializeArchive() {
     }
 
     function setMenu(open, restoreFocus = true) {
+      if (open && introActive) finishIntro({ restoreFocus:false });
       cancelPointer();
       state.velX = state.velY = 0;
       menuOpen = open;
@@ -1408,6 +1446,7 @@ export function initializeArchive() {
     }
 
     function openPanel(view) {
+      if (introActive) finishIntro({ restoreFocus:false });
       const workspace = moduleIds.includes(view);
       if (workspace) renderWorkspace(view);
       const selected = $(`[data-view="${workspace ? "platform" : view}"]`, panel);
@@ -1448,6 +1487,9 @@ export function initializeArchive() {
 
     listen(document,"click", (event) => {
       const target = event.target;
+      if (target.closest("[data-intro-skip]")) { finishIntro(); return; }
+      if (target.closest("[data-intro-workspace]")) { finishIntro(); if (session) openWorkspace(); return; }
+      if (target.closest("[data-watch-intro]")) { startIntro(true); return; }
       if (target.closest("[data-theme-toggle]")) { event.preventDefault(); setTheme(currentTheme === "light" ? "dark" : "light"); return; }
       if (handleWorkspaceAction(event)) return;
       if (target === lit || target.closest("[data-close]")) { closeShot(); return; }
@@ -1455,7 +1497,9 @@ export function initializeArchive() {
       const panelTrigger = target.closest("[data-panel]");
       if (panelTrigger) {
         event.preventDefault();
-        openPanel(panelTrigger.dataset.panel);
+        const view = panelTrigger.dataset.panel;
+        if (moduleIds.includes(view)) { if (session) openWorkspace(); else openLogin(); return; }
+        openPanel(view);
         return;
       }
       if (target.closest("[data-grid]")) { event.preventDefault(); setGrid(true); return; }
@@ -1478,6 +1522,13 @@ export function initializeArchive() {
     listen($("#nextShot"),"click", () => navigateShot(1));
 
     listen(document,"keydown", (event) => {
+      if (introActive && event.key === "Escape") { event.preventDefault(); finishIntro(); return; }
+      if (introActive && event.key === "Tab") {
+        const buttons = $$("button",intro), first = buttons[0], last = buttons[buttons.length-1];
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === intro)) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || document.activeElement === intro)) { event.preventDefault(); first.focus(); }
+        return;
+      }
       if (event.key === "Escape" && body.classList.contains("ws-drawer-open")) {
         setDrawer(false);
         const toggleButton = $("[data-ws-drawer]");
@@ -1485,10 +1536,16 @@ export function initializeArchive() {
         return;
       }
       if (event.key === "Escape") {
+        if (body.classList.contains("finder-open")) { setFinder(false); return; }
         if (litOpen) closeShot();
         else if (panelOpen) closePanel();
         else if (menuOpen) setMenu(false);
         else if (gridOpen) setGrid(false);
+        return;
+      }
+      if ((event.key === "k" || event.key === "K") && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setFinder(!body.classList.contains("finder-open"));
         return;
       }
       if (litOpen && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
@@ -1620,9 +1677,299 @@ export function initializeArchive() {
       probe.onerror = settle;
       probe.src = shot.image;
     });
-    $("#avatar").src = shots[2].image;
+    $("#avatar").src = "https://images.pexels.com/photos/5964983/pexels-photo-5964983.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=120&w=120";
+
+    // ---- Role workspaces: one shared store, a focused desk per role ----
+    const STORE_KEY="resqsync-store-v2", SESSION_KEY="resqsync-session-v2";
+    const STATUS_ORDER=["opened","verified","assigned","enroute","resolved"];
+    const STATUS_LABEL={opened:"Opened",verified:"Verified",assigned:"Assigned",enroute:"En route",resolved:"Resolved"};
+    const ROLE_ICONS={seeker:'<path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.4h.01"/>',manager:'<path d="M13 2.5 4.5 13.5H12l-1 8 8.5-11H12l1-8Z"/>',coordinator:'<path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4v-9Z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/>',admin:'<path d="M12 3 20 6v5.5c0 4.4-3 7.8-8 9.5-5-1.7-8-5.1-8-9.5V6l8-3Z"/>',viewer:'<circle cx="12" cy="12" r="3.2"/><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>'};
+    const ROLES={
+      seeker:{label:"Help seeker",blurb:"Raise a help request and follow it from opened to resolved, like tracking a delivery.",tabs:["Raise a request","Track my requests"]},
+      manager:{label:"Crisis manager",blurb:"Verify incoming requests and assign the right resource to each one.",tabs:["Incoming requests","Incident board"]},
+      coordinator:{label:"Resource coordinator",blurb:"Hold the inventory, confirm dispatches, keep stock honest.",tabs:["Dispatch queue","Inventory"]},
+      admin:{label:"Admin",blurb:"Full oversight of every request, resource and decision in the network.",tabs:["Overview","Audit trail"]},
+    };
+    function seedStore(){
+      const t=(m)=>new Date(Date.now()-m*60000).toISOString();
+      return { seq:44,
+        resources:[
+          {id:"R1",name:"Swiftwater rescue boat",type:"Equipment",total:6,assigned:2},
+          {id:"R2",name:"ALS ambulance",type:"Equipment",total:8,assigned:5},
+          {id:"R3",name:"Relief kits",type:"Supplies",total:1200,assigned:260},
+          {id:"R4",name:"Medical oxygen cylinders",type:"Supplies",total:24,assigned:15},
+        ],
+        requests:[
+          {id:"RSQ-0041",name:"S. Iyer",address:"12 Marine Drive, Kochi",phone:"+91 98470 11223",brief:"Roof access needed, water rising fast around the house.",adults:3,children:2,photo:null,status:"enroute",createdAt:t(160),resource:"Swiftwater rescue boat",history:[{at:t(160),label:"Request opened"},{at:t(150),label:"Verified by crisis manager"},{at:t(142),label:"Boat assigned"},{at:t(131),label:"Dispatch confirmed"}]},
+          {id:"RSQ-0042",name:"A. Rahman",address:"Old City, Hyderabad",phone:"+91 90000 44556",brief:"Elderly patient needs an oxygen cylinder within the hour.",adults:2,children:0,photo:null,status:"assigned",createdAt:t(74),resource:"Medical oxygen cylinders",history:[{at:t(74),label:"Request opened"},{at:t(66),label:"Verified by crisis manager"},{at:t(58),label:"Oxygen assigned"}]},
+          {id:"RSQ-0043",name:"P. Das",address:"Riverside colony, Guwahati",phone:"+91 98640 77889",brief:"Family stranded on the first floor, need evacuation and dry rations.",adults:4,children:3,photo:null,status:"verified",createdAt:t(22),resource:null,history:[{at:t(22),label:"Request opened"},{at:t(14),label:"Verified by crisis manager"}]},
+        ],
+        audit:[{at:t(160),actor:"Help seeker",action:"Raised RSQ-0041"},{at:t(150),actor:"Crisis manager",action:"Verified RSQ-0041"},{at:t(142),actor:"Crisis manager",action:"Assigned Swiftwater rescue boat to RSQ-0041"},{at:t(131),actor:"Resource coordinator",action:"Confirmed dispatch for RSQ-0041"}],
+      };
+    }
+    let store;
+    try{ const raw=JSON.parse(localStorage.getItem(STORE_KEY)||"null"); store=(raw&&Array.isArray(raw.requests)&&Array.isArray(raw.resources))?raw:seedStore(); }catch{ store=seedStore(); }
+    function saveStore(){ try{ localStorage.setItem(STORE_KEY,JSON.stringify(store)); }catch{ /* session-only */ } }
+    let session=null;
+    try{ const savedSession=JSON.parse(localStorage.getItem(SESSION_KEY)||"null"); if(savedSession&&ROLES[savedSession.role]) session=savedSession; }catch{ session=null; }
+    function setSession(role){
+      session=role?{role}:null;
+      try{ session?localStorage.setItem(SESSION_KEY,JSON.stringify(session)):localStorage.removeItem(SESSION_KEY); }catch{ /* session-only */ }
+      syncAuthUI();
+    }
+    const authBtn=$("#authBtn");
+    function syncAuthUI(){
+      if(authBtn){ authBtn.textContent=session?ROLES[session.role].label:"Login"; authBtn.classList.toggle("is-authed",Boolean(session)); authBtn.title=session?"Signed in — select to sign out":"Sign in to a role workspace"; }
+      const menuAuth=$(".menu-secondary [data-auth]"); if(menuAuth) menuAuth.textContent=session?"Sign out":"Sign in";
+      const chip=$("#wsRoleChip"); if(chip) chip.textContent=session?ROLES[session.role].label:"";
+    }
+    function openLogin(){
+      if(introActive) finishIntro({restoreFocus:false});
+      const login=$("#login");
+      $("#roleGrid").innerHTML=Object.entries(ROLES).map(([key,role])=>`<button type="button" class="role-card" data-role="${key}"><span class="role-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ROLE_ICONS[key]}</svg></span><span class="role-card-text"><b>${esc(role.label)}</b><small>${esc(role.blurb)}</small></span><span class="role-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h8m0 0-3-3m3 3-3 3"/></svg></span></button>`).join("");
+      login.classList.add("is-open"); login.inert=false; login.setAttribute("aria-hidden","false");
+      body.classList.add("login-open");
+      requestAnimationFrame(()=>{ const first=$("#roleGrid .role-card"); if(first) first.focus(); });
+    }
+    function closeLogin(focusBack=true){
+      const login=$("#login"); if(!login.classList.contains("is-open")) return;
+      login.classList.remove("is-open"); login.inert=true; login.setAttribute("aria-hidden","true");
+      body.classList.remove("login-open");
+      if(focusBack&&authBtn) authBtn.focus({preventScroll:true});
+    }
+    function openWorkspace(){
+      if(!session){ openLogin(); return; }
+      openPanel("workspace");
+      renderRoleWorkspace();
+    }
+    function findRequest(id){ return store.requests.find((r)=>r.id===id); }
+    function pushStatus(req,label){ req.history.push({at:new Date().toISOString(),label}); }
+    function trackerHTML(req){
+      const idx=STATUS_ORDER.indexOf(req.status);
+      return `<div class="tracker"><ol>${STATUS_ORDER.map((s,i)=>{ const h=req.history[i]; return `<li class="${i<idx?"done":i===idx?"now":""}"><i>${i<idx?"✓":i+1}</i><span>${STATUS_LABEL[s]}</span>${h?`<small>${when(h.at)}</small>`:""}</li>`; }).join("")}</ol></div>`;
+    }
+    function requestCard(req,actions){
+      return `<article class="req-card st-${req.status}"><div class="req-card-top"><span class="req-id">${esc(req.id)} · ${when(req.createdAt)}</span><span class="req-status ${req.status}">${STATUS_LABEL[req.status]}</span></div>
+      <div class="req-meta"><span>${esc(req.name)}</span><span>${esc(req.address)}</span><span>${esc(req.phone)}</span><span>${req.adults} adults · ${req.children} children</span></div>
+      <p class="req-brief">${esc(req.brief)}</p>
+      ${req.photo?`<div class="photo-preview"><img src="${req.photo}" alt="Verification photo for ${esc(req.id)}"><small>Verification photo</small></div>`:""}
+      ${req.resource?`<div class="req-meta"><span>Assigned: <b>${esc(req.resource)}</b></span></div>`:""}
+      ${trackerHTML(req)}
+      ${actions||""}</article>`;
+    }
+    function resourceOptionsHTML(){ return store.resources.filter((r)=>r.assigned<r.total).map((r)=>`<option value="${esc(r.name)}">${esc(r.name)} (${r.total-r.assigned} free)</option>`).join(""); }
+    function renderRoleWorkspace(){
+      if(!session) return;
+      const role=ROLES[session.role];
+      $("[data-role-eyebrow]").textContent="ROLE WORKSPACE";
+      $("[data-role-title]").textContent=role.label;
+      $("[data-role-blurb]").textContent=role.blurb;
+      const roleIcon=$("#wsRoleIcon"); if(roleIcon) roleIcon.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ROLE_ICONS[session.role]}</svg>`;
+      syncAuthUI();
+      const tabs=$("#roleTabs");
+      if(tabs.dataset.role!==session.role){ tabs.dataset.role=session.role; tabs.dataset.tab="0"; }
+      tabs.innerHTML=role.tabs.map((t,i)=>`<button type="button" role="tab" aria-selected="${tabs.dataset.tab===String(i)}" class="${tabs.dataset.tab===String(i)?"is-active":""}" data-role-tab="${i}">${esc(t)}</button>`).join("");
+      const wrap=$("#roleWorkspace"); const tab=Number(tabs.dataset.tab||0);
+      if(session.role==="seeker"){
+        if(tab===0){
+          wrap.innerHTML=`<form class="work-form req-card" id="raiseForm">
+            <div class="work-form-grid">
+              <label>Your name<input class="work-input" name="name" required maxlength="60" placeholder="Full name"></label>
+              <label>Phone number<input class="work-input" name="phone" type="tel" required maxlength="20" placeholder="+91 …"></label>
+              <label class="full">Address<input class="work-input" name="address" required maxlength="120" placeholder="House, street, town, district"></label>
+              <label class="full">What help do you need?<textarea class="work-input" name="brief" required maxlength="240" rows="2" placeholder="Briefly describe the situation"></textarea></label>
+              <label>Adults (approx.)<input class="work-input" name="adults" type="number" min="0" max="500" value="1" required></label>
+              <label>Children (approx.)<input class="work-input" name="children" type="number" min="0" max="500" value="0" required></label>
+              <label class="full">Photo for verification<input class="work-input" id="raisePhoto" type="file" accept="image/*"></label>
+            </div>
+            <div class="photo-preview" id="photoPreview" hidden><img alt="Verification photo preview"><small>Attached for verification</small></div>
+            <div class="req-actions"><button class="work-btn primary" type="submit">Raise request</button><p style="color:var(--dim);font-size:11px">Your request reaches crisis managers immediately.</p></div>
+          </form>`;
+        } else {
+          wrap.innerHTML=store.requests.length?store.requests.map((r)=>requestCard(r)).join(""):'<p class="work-empty">No requests yet. Raise one from the first tab.</p>';
+        }
+      } else if(session.role==="manager"){
+        if(tab===0){
+          const open=store.requests.filter((r)=>r.status!=="resolved");
+          wrap.innerHTML=open.length?open.map((r)=>{
+            let actions="";
+            if(r.status==="opened") actions=`<div class="req-actions"><button class="work-btn primary" type="button" data-act="verify" data-id="${r.id}">Verify request</button></div>`;
+            else if(r.status==="verified") actions=`<div class="req-actions"><select class="work-select" name="resource" style="max-width:260px">${resourceOptionsHTML()}</select><button class="work-btn primary" type="button" data-act="assign" data-id="${r.id}">Assign resource</button></div>`;
+            else if(r.status==="enroute") actions=`<div class="req-actions"><button class="work-btn" type="button" data-act="resolve" data-id="${r.id}">Mark resolved</button></div>`;
+            else if(r.status==="assigned") actions=`<div class="req-actions"><p style="color:var(--dim);font-size:11px">Waiting for the coordinator to confirm dispatch.</p></div>`;
+            return requestCard(r,actions);
+          }).join(""):'<p class="work-empty">No open requests right now.</p>';
+        } else {
+          wrap.innerHTML=`<div class="overview-stats">${[[""+store.requests.filter((r)=>r.status!=="resolved").length,"Open requests"],[""+store.requests.filter((r)=>r.status==="enroute").length,"En route"],[""+store.resources.reduce((s,r)=>s+r.assigned,0),"Units committed"],[""+store.audit.length,"Decisions logged"]].map(([v,l])=>`<div class="overview-stat"><b>${v}</b><span>${l}</span></div>`).join("")}</div>`+store.requests.filter((r)=>r.status!=="resolved").map((r)=>requestCard(r)).join("");
+        }
+      } else if(session.role==="coordinator"){
+        if(tab===0){
+          const queue=store.requests.filter((r)=>r.status==="assigned");
+          wrap.innerHTML=queue.length?queue.map((r)=>requestCard(r,`<div class="req-actions"><button class="work-btn primary" type="button" data-act="dispatch" data-id="${r.id}">Confirm dispatch</button></div>`)).join(""):'<p class="work-empty">Nothing waiting for dispatch. Assigned requests appear here.</p>';
+        } else {
+          wrap.innerHTML=`<div class="table-scroll"><table class="work-table"><thead><tr><th>Resource</th><th>Type</th><th>Committed</th><th>Available</th></tr></thead><tbody>${store.resources.map((r)=>`<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.type)}</td><td>${r.assigned} / ${r.total}</td><td><div class="capacity-bar" style="min-width:90px"><i style="width:${Math.round(r.assigned/r.total*100)}%"></i></div></td></tr>`).join("")}</tbody></table></div>`;
+        }
+      } else if(session.role==="admin"){
+        if(tab===0){
+          wrap.innerHTML=`<div class="overview-stats">${[[""+store.requests.length,"Total requests"],[""+store.requests.filter((r)=>r.status!=="resolved").length,"Open"],[""+store.resources.reduce((s,r)=>s+(r.total-r.assigned),0),"Units free"],[""+store.audit.length,"Audit entries"]].map(([v,l])=>`<div class="overview-stat"><b>${v}</b><span>${l}</span></div>`).join("")}</div><h3 class="section-title">Latest decisions</h3><ul class="decision-list">${store.audit.slice(0,8).map((a)=>`<li><small>${when(a.at)} · ${esc(a.actor)}</small>${esc(a.action)}</li>`).join("")}</ul>`;
+        } else {
+          wrap.innerHTML=`<ul class="decision-list">${store.audit.map((a)=>`<li><small>${when(a.at)} · ${esc(a.actor)}</small>${esc(a.action)}</li>`).join("")}</ul>`;
+        }
+      }
+      $$("#roleWorkspace > *").forEach((el,i)=>{ el.style.animation=`riseIn .55s var(--ease) ${Math.min(i,8)*60}ms backwards`; });
+    }
+    let pendingPhoto=null;
+    listen($("#roleTabs"),"click",(e)=>{ const b=e.target.closest("[data-role-tab]"); if(!b) return; $("#roleTabs").dataset.tab=b.dataset.roleTab; renderRoleWorkspace(); });
+    listen($("#roleWorkspace"),"change",(e)=>{
+      if(e.target.id!=="raisePhoto") return;
+      const file=e.target.files&&e.target.files[0]; const prev=$("#photoPreview");
+      if(!file||!file.type.startsWith("image/")){ if(prev) prev.hidden=true; pendingPhoto=null; return; }
+      const reader=new FileReader();
+      reader.onload=()=>{ pendingPhoto=String(reader.result); const img=prev?prev.querySelector("img"):null; if(img) img.src=pendingPhoto; if(prev) prev.hidden=false; };
+      reader.readAsDataURL(file);
+    });
+    listen($("#roleWorkspace"),"submit",(e)=>{
+      if(e.target.id!=="raiseForm") return; e.preventDefault();
+      const f=e.target; const adults=Number(f.adults.value)||0, children=Number(f.children.value)||0;
+      const id="RSQ-"+String(store.seq++).padStart(4,"0");
+      const at=new Date().toISOString();
+      store.requests.unshift({id,name:f.name.value.trim(),address:f.address.value.trim(),phone:f.phone.value.trim(),brief:f.brief.value.trim(),adults,children,photo:pendingPhoto,status:"opened",createdAt:at,resource:null,history:[{at,label:"Request opened"}]});
+      store.audit.unshift({at,actor:"Help seeker",action:`Raised ${id}`});
+      pendingPhoto=null; saveStore();
+      $("#roleTabs").dataset.tab="1"; renderRoleWorkspace();
+      showToast(`${id} raised. Track it under "Track my requests".`);
+    });
+    listen($("#roleWorkspace"),"click",(e)=>{
+      const btn=e.target.closest("[data-act]"); if(!btn||!session) return;
+      const req=findRequest(btn.dataset.id); if(!req) return;
+      const act=btn.dataset.act; const now=new Date().toISOString(); const actor=ROLES[session.role].label;
+      if(act==="verify"&&req.status==="opened"){ req.status="verified"; pushStatus(req,"Verified by crisis manager"); store.audit.unshift({at:now,actor,action:`Verified ${req.id}`}); }
+      else if(act==="assign"&&req.status==="verified"){
+        const sel=btn.parentElement.querySelector("select[name=resource]"); const name=sel?sel.value:null;
+        const res=store.resources.find((r)=>r.name===name&&r.assigned<r.total);
+        if(!res){ showToast("No available capacity in that pool."); return; }
+        res.assigned+=1; req.resource=res.name; req.status="assigned"; pushStatus(req,`${res.name} assigned`); store.audit.unshift({at:now,actor,action:`Assigned ${res.name} to ${req.id}`});
+      }
+      else if(act==="dispatch"&&req.status==="assigned"){ req.status="enroute"; pushStatus(req,"Dispatch confirmed"); store.audit.unshift({at:now,actor,action:`Confirmed dispatch for ${req.id}`}); }
+      else if(act==="resolve"&&(req.status==="enroute"||req.status==="assigned")){
+        if(req.resource){ const res=store.resources.find((r)=>r.name===req.resource); if(res&&res.assigned>0) res.assigned-=1; }
+        req.status="resolved"; pushStatus(req,"Marked resolved"); store.audit.unshift({at:now,actor,action:`Resolved ${req.id}`});
+      } else return;
+      saveStore(); renderRoleWorkspace(); showToast(`${req.id} is now ${STATUS_LABEL[req.status]}.`);
+    });
+    listen(document,"click",(e)=>{
+      const roleCard=e.target.closest("[data-role]");
+      if(roleCard){ setSession(roleCard.dataset.role); closeLogin(false); openWorkspace(); return; }
+      if(e.target.closest("[data-login-close]")){ e.preventDefault(); closeLogin(); return; }
+      if(e.target.closest("[data-switch-role]")){ e.preventDefault(); closePanel(); openLogin(); return; }
+      if(e.target.closest("[data-auth]")){ e.preventDefault(); if(session){ setSession(null); closePanel(); showToast("Signed out."); } else openLogin(); return; }
+    });
+    listen(document,"keydown",(e)=>{ if(e.key==="Escape"&&body.classList.contains("login-open")) closeLogin(); });
+    syncAuthUI();
     window.__resqsyncReady = true;
     syncIsolation();
+    function scheduleIntroEnd(milliseconds,token = introGeneration) {
+      clearTimeout(introEndTimer);
+      introEndTimer = setTimeout(() => {
+        if (token === introGeneration && introActive) finishIntro();
+      },Math.max(0,milliseconds));
+    }
+    function startIntro(force = false) {
+      if (!force && reduced.matches) return;
+      clearTimeout(introEndTimer);
+      clearTimeout(introFallbackTimer);
+      clearTimeout(introHideTimer);
+      const token = ++introGeneration;
+      introReturn = menuOpen ? menuBtn : document.activeElement;
+      if (litOpen) closeShot(false);
+      if (panelOpen) closePanel();
+      if (gridOpen) setGrid(false,false);
+      if (menuOpen) setMenu(false,false);
+      cancelPointer();
+      state.velX = state.velY = 0;
+      introActive = true;
+      introStartedAt = performance.now();
+      introDuration = reduced.matches ? 2400 : 5200;
+      introProgress.style.transform = "scaleX(0)";
+      intro.hidden = false;
+      intro.classList.remove("is-closing","has-video");
+      intro.classList.add("is-open");
+      body.classList.add("intro-active");
+      syncIsolation();
+      syncLock();
+      scheduleIntroEnd(introDuration,token);
+      intro.focus({ preventScroll:true });
+      // The image and motion appear immediately; film loading is never a gate.
+      if (reduced.matches) return;
+      introFallbackTimer = setTimeout(() => {
+        if (token === introGeneration && introActive && !intro.classList.contains("has-video")) finishIntro();
+      },2400);
+      try {
+        film.muted = true;
+        film.defaultMuted = true;
+        film.playsInline = true;
+        film.setAttribute("webkit-playsinline","");
+        if (!film.getAttribute("src")) film.src = film.dataset.src;
+        else if (film.currentTime > .05) film.currentTime = 0;
+        film.playbackRate = 2;
+        const attempt = film.play();
+        if (attempt && typeof attempt.catch === "function") attempt.catch(() => {
+          if (token !== introGeneration || !introActive) return;
+          introDuration = 2400;
+          scheduleIntroEnd(Math.max(350,2400-(performance.now()-introStartedAt)),token);
+        });
+      } catch {
+        introDuration = 2400;
+        scheduleIntroEnd(Math.max(350,2400-(performance.now()-introStartedAt)),token);
+      }
+    }
+    function finishIntro({ workspace = false,restoreFocus = true } = {}) {
+      if (!introActive) return;
+      introActive = false;
+      const token = ++introGeneration;
+      clearTimeout(introEndTimer);
+      clearTimeout(introFallbackTimer);
+      clearTimeout(introHideTimer);
+      introProgress.style.transform = "scaleX(1)";
+      intro.classList.add("is-closing");
+      intro.classList.remove("is-open");
+      body.classList.remove("intro-active");
+      try { film.pause(); } catch { /* Media support does not affect access. */ }
+      syncIsolation();
+      syncLock();
+      introHideTimer = setTimeout(() => {
+        if (token !== introGeneration || introActive) return;
+        intro.hidden = true;
+        intro.classList.remove("is-closing","has-video");
+      },reduced.matches ? 160 : 550);
+      if (workspace) openPanel("overview");
+      else if (restoreFocus) {
+        const returnTo = introReturn && introReturn.isConnected && !introReturn.closest("[inert],[hidden]") && introReturn !== body ? introReturn : menuBtn;
+        returnTo.focus({ preventScroll:true });
+      }
+    }
+    listen(film,"play",() => { try { film.playbackRate = 2; } catch { /* Playback rate is optional. */ } });
+    listen(film,"playing",() => {
+      if (!introActive) { try { film.pause(); } catch { /* Optional playback. */ } return; }
+      intro.classList.add("has-video");
+      clearTimeout(introFallbackTimer);
+      const remaining = Number.isFinite(film.duration) ? (film.duration-film.currentTime)/2*1000 : 3500;
+      const age = performance.now()-introStartedAt;
+      const delay = Math.max(200,Math.min(Math.max(1600-age,remaining),5200-age));
+      introDuration = age + delay;
+      scheduleIntroEnd(delay);
+    });
+    listen(film,"ended",() => { if (introActive) finishIntro(); });
+    listen(film,"error",() => {
+      if (!introActive) return;
+      intro.classList.remove("has-video");
+      introDuration = 2400;
+      scheduleIntroEnd(Math.max(350,2400-(performance.now()-introStartedAt)));
+    });
+    listen(document,"visibilitychange",() => { if (document.hidden && introActive) finishIntro({ restoreFocus:false }); });
+    window.__resqsyncReplayIntro = () => startIntro(true);
+    window.__resqsyncSkipIntro = () => finishIntro();
+    if (!new URLSearchParams(window.location.search).has("skipIntro") && !window.location.hash) startIntro();
     listen(window,"pagehide",(event) => { if (!event.persisted) blobUrls.forEach((url) => URL.revokeObjectURL(url)); });
   
   } catch (error) { dispose(); throw error; }

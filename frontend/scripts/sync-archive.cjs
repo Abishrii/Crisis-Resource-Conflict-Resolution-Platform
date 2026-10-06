@@ -48,9 +48,17 @@ const lifecycle = `
     abort.abort();
     timers.forEach((id) => window.clearTimeout(id));
     frames.forEach((id) => window.cancelAnimationFrame(id));
-    document.body.classList.remove('menu-open', 'gridview', 'lit', 'panelopen', 'dragging', 'deep', 'has-pointer');
+    document.body.classList.remove('menu-open', 'gridview', 'lit', 'panelopen', 'dragging', 'deep', 'has-pointer', 'ws-drawer-open', 'intro-active', 'finder-open');
     document.body.style.overflow = '';
     document.documentElement.style.overflow = '';
+    const intro = document.getElementById('intro');
+    if (intro) { intro.hidden = true; intro.inert = true; intro.classList.remove('is-open', 'is-closing', 'has-video'); }
+    const film = document.getElementById('film');
+    if (film) { try { film.pause(); } catch {} }
+    const experience = document.getElementById('experience');
+    if (experience) experience.inert = false;
+    delete window.__resqsyncReplayIntro;
+    delete window.__resqsyncSkipIntro;
     window.__resqsyncReady = false;
   };
 `;

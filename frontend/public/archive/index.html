@@ -50,6 +50,13 @@
       --safe-bottom:env(safe-area-inset-bottom, 0px);
       --safe-left:env(safe-area-inset-left, 0px);
       --tap:44px;
+      --glow-a:rgba(219,183,149,.1);
+      --glow-b:rgba(156,140,112,.065);
+      --card-bg:#0d0d0c;
+      --card-shadow:0 18px 40px -18px rgba(0,0,0,.75);
+      --panel-blur:saturate(1.35) blur(16px);
+      --panel:rgba(28,29,24,.72);
+      --panel:rgba(28,29,24,.72);
       --serif:"Playfair Display", "Times New Roman", serif;
       --sans:"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
       --cw:180px;
@@ -90,6 +97,13 @@
       --sage:#426442;
       --amber:#835716;
       --red:#9a4535;
+      --glow-a:rgba(134,71,47,.1);
+      --glow-b:rgba(96,111,81,.065);
+      --card-bg:#fbf8f2;
+      --card-shadow:0 14px 34px -18px rgba(62,48,25,.32);
+      --panel-blur:saturate(1.2) blur(14px);
+      --panel:rgba(252,249,243,.8);
+      --panel:rgba(252,249,243,.8);
     }
     * { box-sizing:border-box; }
     html { background:var(--bg); scrollbar-gutter:stable; scrollbar-color:var(--dim) var(--bg); }
@@ -143,12 +157,13 @@
       text-align:center;
       font-family:var(--serif);
       font-weight:400;
-      font-size:clamp(25px, 3.7vw, 55px);
-      line-height:1.06;
-      letter-spacing:-.005em;
+      font-size:clamp(23px, 3.2vw, 47px);
+      line-height:1.16;
+      letter-spacing:-.012em;
       color:var(--ink);
       text-shadow:var(--headline-shadow);
       pointer-events:none;
+      text-wrap:balance;
       user-select:none;
       -webkit-user-select:none;
     }
@@ -158,24 +173,45 @@
       transform:translateY(-50%);
     }
     .sphere-name {
-      display:block; margin-bottom:19px;
-      font-size:clamp(48px,7.4vw,106px); line-height:.95; letter-spacing:-.06em;
+      display:block;
+      font-size:clamp(52px,7.8vw,112px); line-height:.92; letter-spacing:-.062em;
       opacity:0; filter:blur(7px); transform:translateY(9px);
       transition:opacity 1.05s ease .5s,filter 1.05s ease .5s,transform 1.15s var(--ease) .5s;
     }
-    .sphere-name em { font-style:normal; }
-    .sphere-words { display:block; max-width:100%; }
+    .sphere-name em { font-style:normal; color:var(--accent); }
+    .sphere-name::after {
+      content:""; display:block; width:30px; height:1px;
+      margin:clamp(16px,2vw,24px) auto 0; background:currentColor; opacity:.4;
+    }
+    .sphere-words { display:block; max-width:100%; margin-top:clamp(16px,2vw,24px); }
     .sphere-words > span {
       display:inline-block; opacity:0; transform:translateY(.42em); filter:blur(7px);
       transition:opacity 1.05s ease,transform 1.15s var(--ease),filter 1.05s ease;
       transition-delay:calc(.9s + var(--i) * .085s);
     }
     .sphere-label {
-      display:block; margin-top:24px; font-family:var(--sans);
-      font-size:9px; font-weight:300; line-height:1.5; text-transform:uppercase;
-      letter-spacing:.18em; color:var(--dim);
+      display:flex; align-items:center; justify-content:center; gap:11px;
+      margin-top:clamp(24px,3vw,34px); font-family:var(--sans);
+      font-size:10px; font-weight:400; line-height:1.5; text-transform:uppercase;
+      letter-spacing:.22em; color:var(--dim);
       opacity:0; transition:opacity 1s ease 1.5s;
     }
+    .sphere-label::before,.sphere-label::after {
+      content:""; width:22px; height:1px; background:currentColor; opacity:.55;
+    }
+    .stage-glow {
+      --orbit-size:120px;
+      position:fixed; inset:0; z-index:9; pointer-events:none;
+      background:
+        radial-gradient(ellipse 43% 48% at 50% 49%,var(--glow-a),transparent 72%),
+        radial-gradient(ellipse 55% 44% at 17% 78%,var(--glow-b),transparent 74%);
+      opacity:0; transition:opacity 1.6s ease .4s;
+    }
+    .stage-glow::before,.stage-glow::after { content:""; position:absolute; top:50%; left:50%; width:var(--orbit-size); height:var(--orbit-size); border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; transition:width .16s linear,height .16s linear; }
+    .stage-glow::before { border:1px solid color-mix(in srgb,var(--ink) 9%,transparent); box-shadow:0 0 55px -35px var(--glow-a); }
+    .stage-glow::after { width:calc(var(--orbit-size) * .42); border:1px solid color-mix(in srgb,var(--accent) 11%,transparent); transform:translate(-50%,-50%) rotate(-28deg); }
+    body.revealed .stage-glow { opacity:1; }
+    body.gridview .stage-glow,body.lit .stage-glow,body.panelopen .stage-glow,body.intro-active .stage-glow { opacity:0; transition-delay:0s; }
     body.revealed .sphere-name,body.revealed .sphere-words > span {
       opacity:1; transform:none; filter:blur(0);
     }
@@ -189,17 +225,27 @@
     .card.tall { height:calc(var(--cw) * 1.25); margin-top:calc(var(--cw) * -.625); }
     .card figure {
       position:relative; width:100%; height:100%; overflow:hidden;
-      border-radius:3px; background:#0a0a0a; transition:transform .5s ease;
+      border-radius:7px; background:var(--card-bg);
+      box-shadow:var(--card-shadow);
+      transition:transform .55s var(--ease),box-shadow .55s ease;
     }
-    .card:hover figure,.card:focus-visible figure { transform:scale(1.045); }
+    .card:hover figure,.card:focus-visible figure {
+      transform:scale(1.055);
+      box-shadow:0 26px 54px -20px rgba(0,0,0,.85);
+    }
+    .card:focus-visible figure { box-shadow:var(--card-shadow),0 0 0 2px var(--accent); }
     .card img { width:100%; height:100%; object-fit:cover; opacity:0; }
     .card img.in { opacity:1; }
     body.revealed .card img { transition:opacity .8s ease-out; }
     .card figure::after {
       content:""; position:absolute; inset:0;
       background:rgba(0,0,0,var(--d,0));
-      box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);
-      border-radius:3px; pointer-events:none;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);
+      border-radius:7px; pointer-events:none;
+      transition:box-shadow .45s ease;
+    }
+    .card:hover figure::after {
+      box-shadow:inset 0 0 0 1px rgba(205,245,109,.5);
     }
     .vig {
       position:fixed; inset:0; z-index:12; pointer-events:none;
@@ -215,8 +261,12 @@
       padding:calc(var(--pad) * .8 + var(--safe-top)) calc(var(--pad) + var(--safe-right)) calc(var(--pad) * .35) calc(var(--pad) + var(--safe-left));
       mix-blend-mode:normal;
     }
-    .header-actions { display:flex; gap:25px; align-items:center; }
-    .platform-link { padding:12px 0; min-height:44px; display:inline-flex; align-items:center; gap:15px; color:var(--ink); font-size:11px; }
+    header::after { content:""; position:absolute; right:calc(var(--pad) + var(--safe-right)); bottom:0; left:calc(var(--pad) + var(--safe-left)); height:1px; background:linear-gradient(90deg,transparent,var(--line-soft) 12%,var(--line-soft) 88%,transparent); pointer-events:none; }
+    .brand-lockup { display:flex; flex-direction:column; align-items:flex-start; gap:5px; }
+    .brand-note { color:var(--dim); font-size:8px; letter-spacing:.14em; line-height:1.4; text-transform:uppercase; }
+    .header-actions { display:flex; gap:clamp(13px,2.2vw,28px); align-items:center; }
+    .platform-link { padding:12px 0; min-height:44px; display:inline-flex; align-items:center; gap:9px; color:var(--ink); font-size:11px; letter-spacing:.015em; transition:color .25s; }
+    .platform-link:hover { color:var(--accent); }
     .platform-link span { transition:transform .3s; }
     .platform-link:hover span { transform:translate(2px,-2px); }
     .theme-toggle { display:inline-flex; align-items:center; justify-content:center; gap:9px; min-width:44px; min-height:44px; padding:8px 0; color:var(--ink); font-size:11px; font-weight:400; transition:color .25s; }
@@ -253,26 +303,30 @@
     body.menu-open .bars i:last-child { transform:translateY(0) rotate(-45deg); }
     .bio {
       position:fixed; left:calc(var(--pad) + var(--safe-left)); bottom:calc(var(--pad) + var(--safe-bottom));
-      z-index:55; max-width:min(320px,46vw);
+      z-index:55; max-width:min(320px,42vw);
+      padding:3px 0 1px 16px; border-left:1px solid var(--accent);
+      background:none; box-shadow:none;
     }
-    .who { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
-    #avatar { width:52px; height:52px; flex:0 0 auto; border-radius:3px; object-fit:cover; filter:grayscale(.15); background:#111; }
-    .who b { display:block; font-family:var(--serif); font-weight:400; font-size:19px; letter-spacing:.01em; line-height:1.2; }
-    .who > div > span { display:block; margin-top:5px; color:var(--dim); font-size:9px; line-height:1.5; }
-    .bio p { font-size:12.5px; line-height:1.62; color:var(--muted); }
-    .bio-link { min-height:36px; display:inline-flex; align-items:center; gap:19px; padding:10px 0 0; font-size:10px; color:var(--ink); }
+    .who { display:flex; align-items:center; gap:11px; margin-bottom:9px; }
+    #avatar { width:34px; height:34px; flex:0 0 auto; border-radius:50%; object-fit:cover; filter:grayscale(.08); background:var(--card-bg); box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--line-soft); }
+    .who b { display:block; font-family:var(--serif); font-weight:400; font-size:17px; letter-spacing:.005em; line-height:1.2; }
+    .who > div > span { display:block; margin-top:3px; color:var(--dim); font-size:9px; line-height:1.45; }
+    .bio p { max-width:285px; font-size:11px; line-height:1.58; color:var(--muted); }
+    .bio-link { min-height:32px; display:inline-flex; align-items:center; gap:15px; padding:6px 0 4px; font-size:10px; color:var(--ink); }
+    .bio-link:hover { color:var(--accent); }
+    .bio-link:hover { color:var(--accent); }
     .bio-link span,.colophon button span,.text-action span { display:inline-block; transition:transform .35s ease; }
     .bio-link:hover span,.colophon button:hover span,.text-action:hover span { transform:translate(2px,-2px); }
     body.deep .bio,body.gridview .bio,body.lit .bio,body.panelopen .bio {
       opacity:0; transform:translateY(10px); pointer-events:none; transition-delay:0s;
     }
     .colophon {
-      position:fixed; right:calc(var(--pad) + var(--safe-right)); bottom:calc(var(--pad) + var(--safe-bottom));
-      z-index:55; font-size:12.5px; color:var(--muted); text-align:right;
+      position:fixed; right:calc(var(--pad) + var(--safe-right)); bottom:calc(var(--pad) + var(--safe-bottom) + 52px);
+      z-index:55; display:flex; flex-direction:column; align-items:flex-end; gap:6px; font-size:11px; color:var(--muted); text-align:right;
     }
-    .colophon > span { display:block; }
-    .colophon { right:calc(var(--pad) + var(--safe-right) + 64px); }
-    .colophon button { padding:13px 0 0; display:inline-flex; align-items:center; gap:17px; font-size:10px; }
+    .colophon > span { display:block; color:var(--dim); font-size:8px; letter-spacing:.14em; text-transform:uppercase; }
+    .colophon > div { display:flex; align-items:center; justify-content:flex-end; gap:16px; }
+    .colophon button { min-height:32px; padding:6px 0; display:inline-flex; align-items:center; gap:8px; font-size:10px; }
     body.gridview .colophon,body.lit .colophon,body.panelopen .colophon { opacity:0; pointer-events:none; transition-delay:0s; }
     .gridbtn {
       position:fixed; left:calc(var(--pad) + var(--safe-left)); bottom:calc(var(--pad) + var(--safe-bottom));
@@ -289,15 +343,53 @@
     body.lit .gridbtn,body.panelopen .gridbtn { opacity:0; pointer-events:none; }
     .cue {
       position:fixed; left:50%; bottom:calc(var(--pad) + var(--safe-bottom) + 4px);
-      transform:translateX(-50%); z-index:54; display:flex; align-items:center; gap:10px;
+      transform:translateX(-50%); z-index:54; display:flex; align-items:center; gap:11px;
+      padding:10px 18px; border:1px solid var(--line-soft); border-radius:999px;
+      background:var(--panel); backdrop-filter:var(--panel-blur); -webkit-backdrop-filter:var(--panel-blur);
       font-size:10px; text-transform:uppercase; letter-spacing:.2em; color:var(--dim); white-space:nowrap;
+      box-shadow:0 16px 34px -26px rgba(0,0,0,.8);
     }
-    .cue s { position:relative; width:44px; height:1px; background:var(--line); overflow:hidden; }
-    .cue s::after { content:""; position:absolute; inset:0; background:var(--ink); animation:sweep 2.6s ease infinite; }
+    .cue s { position:relative; width:40px; height:1px; background:var(--line); overflow:hidden; }
+    .cue s::after { content:""; position:absolute; inset:0; background:var(--accent); animation:sweep 2.6s ease infinite; }
+    body.deep .cue { opacity:0; pointer-events:none; transition-delay:0s; }
+    .finder {
+      position:fixed; z-index:57; right:calc(var(--pad) + var(--safe-right)); bottom:calc(var(--pad) + var(--safe-bottom) + 54px);
+      width:min(360px,calc(100vw - var(--pad) * 2));
+      padding:16px 16px 8px; border:1px solid var(--line-soft); border-radius:12px;
+      background:var(--panel); backdrop-filter:var(--panel-blur); -webkit-backdrop-filter:var(--panel-blur);
+      box-shadow:0 26px 60px -30px rgba(0,0,0,.85);
+      display:none;
+    }
+    body.finder-open .finder { display:block; }
+    .finder-head { display:flex; gap:8px; align-items:center; }
+    .finder-input {
+      flex:1; min-height:42px; padding:0 13px; border:1px solid var(--line); border-radius:8px;
+      background:var(--field); color:var(--ink); font:400 13px var(--sans);
+    }
+    .finder-input::placeholder { color:var(--dim); opacity:1; }
+    .finder-input:focus-visible { outline-offset:0; }
+    .finder-close { display:grid; place-items:center; width:38px; height:38px; flex:0 0 auto; border:1px solid var(--line); border-radius:8px; color:var(--dim); }
+    .finder-close svg { width:14px; height:14px; }
+    .finder-close:hover { color:var(--ink); border-color:var(--ink); }
+    .finder-hint { margin:10px 2px 6px; font-size:11px; color:var(--dim); }
+    .finder-list { max-height:min(46vh,340px); overflow-y:auto; margin:0; padding:0 0 8px; list-style:none; scrollbar-width:thin; }
+    .finder-list li + li { border-top:1px solid var(--line-soft); }
+    .finder-list button { display:grid; grid-template-columns:38px 1fr 12px; align-items:center; gap:11px; width:100%; padding:9px 2px; text-align:left; }
+    .finder-list img { width:38px; height:38px; border-radius:5px; object-fit:cover; background:var(--card-bg); }
+    .finder-list b { display:block; font-size:13px; font-weight:500; }
+    .finder-list small { display:block; margin-top:2px; font-size:11px; color:var(--dim); }
+    .finder-list svg { color:var(--dim); }
+    .finder-list button:hover svg { color:var(--accent); }
+    .finder-open { color:var(--accent); }
+    .colophon button:hover { color:var(--accent); }
     .motion-control { position:fixed; z-index:56; right:calc(var(--pad) + var(--safe-right)); bottom:calc(var(--pad) + var(--safe-bottom)); display:grid; place-items:center; width:44px; height:44px; border:1px solid var(--control-line); border-radius:50%; background:var(--glass); }
     .motion-control svg { width:14px; height:14px; }
     .motion-control:hover { border-color:var(--ink); }
-    body.lit .motion-control,body.gridview .motion-control,body.panelopen .motion-control,body.menu-open .motion-control { opacity:0; pointer-events:none; transition-delay:0s; }
+    body.lit .motion-control,body.gridview .motion-control,body.panelopen .motion-control,body.menu-open .motion-control,body.intro-active .motion-control,body.finder-open .motion-control { opacity:0; pointer-events:none; transition-delay:0s; }
+    body.gridview .finder,body.panelopen .finder,body.menu-open .finder { display:none; }
+    body.finder-open .finder { display:block; }
+    body.finder-open .colophon { opacity:0; pointer-events:none; transition-delay:0s; }
+    body.lit .finder { display:block; }
     @keyframes sweep { 0% { transform:translateX(-100%); } 55% { transform:translateX(0); } 100% { transform:translateX(100%); } }
     body.deep .cue,body.gridview .cue,body.lit .cue,body.panelopen .cue { opacity:0; pointer-events:none; transition-delay:0s; }
     #grid {
@@ -592,14 +684,77 @@
     .credit-list b { font-family:var(--serif); font-weight:400; font-size:17px; }
     .film-credit { margin-top:24px; font-size:11px; color:var(--dim); }
     .film-credit a { text-underline-offset:4px; }
+    #intro {
+      position:fixed; inset:0; z-index:200; display:flex; flex-direction:column;
+      overflow:hidden; background:#101712; color:#f4f2ef;
+      opacity:0; visibility:hidden; pointer-events:none;
+      transition:opacity .55s ease,visibility .55s;
+    }
+    #intro.is-open { opacity:1; visibility:visible; pointer-events:auto; }
+    #intro.is-closing { opacity:0; pointer-events:none; }
+    #intro [hidden] { display:none; }
+    .intro-media,.intro-shade { position:absolute; inset:0; pointer-events:none; }
+    .intro-media { overflow:hidden; }
+    .intro-media > img,#film { position:absolute; width:100%; height:100%; object-fit:cover; }
+    .intro-media > img { object-position:50% 45%; transform:scale(1.02); }
+    #film { opacity:0; transition:opacity .65s ease; }
+    #intro.has-video #film { opacity:1; }
+    #intro.is-open .intro-media { animation:introDrift 7s ease-out both; }
+    .intro-shade { background:linear-gradient(0deg,rgba(5,13,11,.8),rgba(5,13,11,.25) 45%,rgba(5,13,11,.35)),linear-gradient(90deg,rgba(5,13,11,.42),rgba(5,13,11,.1)); }
+    .intro-top { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:25px; padding:calc(var(--pad) + var(--safe-top)) calc(var(--pad) + var(--safe-right)) 0 calc(var(--pad) + var(--safe-left)); }
+    .intro-top > span:not(.intro-wordmark) { font:300 9px var(--sans); letter-spacing:.16em; text-transform:uppercase; color:rgba(244,242,239,.8); }
+    .intro-wordmark { font-family:var(--serif); font-size:clamp(20px,2vw,26px); line-height:1; }
+    .intro-wordmark em,.intro-copy h2 em { font-style:normal; }
+    .intro-copy { position:relative; z-index:1; display:flex; flex:1; flex-direction:column; align-items:center; justify-content:center; width:min(90%,960px); margin:auto; padding:50px 0 85px; text-align:center; }
+    .intro-copy h2 { font:400 clamp(64px,10vw,136px)/1 var(--serif); letter-spacing:-.055em; margin:0 0 24px; }
+    .intro-copy > p { font:400 clamp(25px,4.2vw,50px)/1.18 var(--serif); letter-spacing:-.015em; }
+    .intro-copy > small { display:block; margin-top:25px; color:rgba(244,242,239,.82); font:300 10px/1.7 var(--sans); letter-spacing:.1em; }
+    #intpx; color:rgba(244,242,239,.82); font:300 10px/1.7 var(--sans); letter-spacing:.1em; }
+    #intro.is-open .intro-copy h2 { animation:introMark 1s var(--ease) .1s both; }
+    #intro.is-open .intro-copy > p { animation:riseIn .85s var(--ease) .4s both; }
+    #intro.is-open .intro-copy > small { animation:riseIn .85s var(--ease) .65s both; }
+    .intro-bottom { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; padding:0 calc(var(--pad) + var(--safe-right)) calc(var(--pad) + var(--safe-bottom)) calc(var(--pad) + var(--safe-left)); }
+    .intro-progress { display:block; width:clamp(95px,15vw,200px); height:1px; overflow:hidden; background:rgba(244,242,239,.25); }
+    .intro-progress > i { display:block; width:100%; height:100%; background:#f4f2ef; transform:scaleX(0); transform-origin:left; }
+    .intro-controls { display:flex; align-items:center; gap:22px; }
+    .intro-controls button { min-height:44px; padding:10px 0; color:#f4f2ef; font:400 12px/1.5 var(--sans); }
+    .intro-controls button > span { margin-left:10px; }
+    .intro-controls .intro-skip { padding:10px 19px; border:1px solid rgba(244,242,239,.6); border-radius:4px; background:rgba(0,0,0,.25); transition:background .25s,border-color .25s; }
+    .intro-controls .intro-skip:hover { background:rgba(0,0,0,.55); border-color:#f4f2ef; }
+    #intro button:focus-visible { outline-color:#f4f2ef; }
+    body.intro-active { overflow:hidden; }
+    body.intro-active .sphere-name,body.intro-active .sphere-words > span { opacity:0; filter:blur(7px); transform:translateY(9px); transition-delay:0s; }
+    body.intro-active .sphere-label { opacity:0; transition-delay:0s; }
+    @keyframes introDrift { from { transform:scale(1.02); } to { transform:scale(1.09); } }
+    @keyframes introMark { from { opacity:0; filter:blur(8px); transform:translateY(16px); } to { opacity:1; filter:blur(0); transform:none; } }
+    @media (max-width:640px) {
+      .intro-top > span:not(.intro-wordmark) { font-size:8px; letter-spacing:.08em; }
+      .intro-copy { padding-bottom:75px; }
+      .intro-copy h2 { font-size:clamp(62px,17vw,100px); margin-bottom:21px; }
+      .intro-copy > p { max-width:320px; font-size:30px; }
+      .intro-copy > small { max-width:250px; font-size:10px; letter-spacing:.04em; }
+      .intro-bottom { gap:18px; }
+      .intro-progress { width:74px; }
+      .intro-controls { gap:15px; }
+      .intro-controls button { font-size:11px; }
+    }
+    @media (max-height:520px) and (orientation:landscape) {
+      .intro-copy { padding:20px 0; }
+      .intro-copy h2 { font-size:65px; margin-bottom:12px; }
+      .intro-copy > p { font-size:27px; }
+      .intro-copy > small { margin-top:12px; }
+    }
     @keyframes riseIn { from { opacity:0; transform:translateY(9px); } to { opacity:1; transform:none; } }
     #dot { position:fixed; top:0; left:0; z-index:300; width:19px; height:19px; margin:-9.5px; border-radius:50%; background:rgba(214,212,209,.9); mix-blend-mode:difference; border:1px solid transparent; pointer-events:none; opacity:0; transition:width .35s ease,height .35s ease,margin .35s ease,background .35s ease,border .35s ease,opacity .2s; }
     body.has-pointer #dot { opacity:1; }
     #dot.wide { width:52px; height:52px; margin:-26px; background:rgba(244,242,239,.14); border-color:rgba(244,242,239,.75); }
     .no-script { position:fixed; inset:0; z-index:500; display:grid; place-content:center; text-align:center; padding:30px; background:var(--bg); color:var(--ink); font-family:var(--serif); font-size:30px; }
     .no-script p { margin-top:18px; font-family:var(--sans); font-size:13px; color:var(--dim); }
-    :root[data-theme="light"] .card figure { box-shadow:0 6px 26px rgba(50,40,24,.1); }
-    :root[data-theme="light"] .card figure::after { box-shadow:inset 0 0 0 1px rgba(41,44,37,.1); }
+    :root[data-theme="light"] .card figure { box-shadow:0 10px 28px -16px rgba(62,48,25,.28); }
+    :root[data-theme="light"] .card figure::after { box-shadow:inset 0 0 0 1px rgba(41,44,37,.12); }
+    :root[data-theme="light"] .card:hover figure::after { box-shadow:inset 0 0 0 1px rgba(134,71,47,.55); }
+    :root[data-theme="light"] .bio,:root[data-theme="light"] .cue { box-shadow:0 16px 36px -26px rgba(62,48,25,.4); }
+    :root[data-theme="light"] #headline { text-shadow:0 1px 18px rgba(252,249,243,.9); }
     :root[data-theme="light"] .rows img { opacity:.96; }
     :root[data-theme="light"] #dot { background:rgba(49,45,39,.75); mix-blend-mode:normal; }
     :root[data-theme="light"] #dot.wide { background:rgba(60,47,32,.05); border-color:rgba(49,45,39,.6); }
@@ -625,8 +780,8 @@
     }
     @media (max-width:768px) {
       .colophon { display:none; }
-      .bio { max-width:calc(100vw - var(--pad) * 2 - var(--safe-left) - var(--safe-right)); }
-      #headline { font-size:clamp(22px,6.4vw,34px); }
+      .bio { max-width:min(340px,calc(100vw - var(--pad) * 2 - var(--safe-left) - var(--safe-right))); padding:3px 0 1px 12px; }
+      #headline { font-size:clamp(21px,5.9vw,32px); }
       .engine-steps { grid-template-columns:1fr; }
       .engine-steps li,.engine-steps li + li { border-left:0; border-bottom:1px solid var(--line-soft); padding:20px 0; }
       .engine-steps li > span { margin-bottom:10px; }
@@ -641,8 +796,15 @@
       .who > div > span { font-size:8px; }
       header .theme-toggle .theme-label { display:none; }
       .cue { display:none; }
-      .sphere-name { font-size:clamp(43px,12vw,68px); margin-bottom:16px; }
-      .sphere-label { font-size:7px; letter-spacing:.18em; margin-top:20px; }
+      .brand-note { font-size:7px; letter-spacing:.1em; }
+      .colophon { bottom:calc(var(--pad) + var(--safe-bottom) + 46px); }
+      .colophon > div { gap:13px; }
+      .colophon button { font-size:9px; }
+      .sphere-name { font-size:clamp(46px,13vw,70px); }
+      .sphere-name::after { margin-top:14px; width:24px; }
+      .sphere-words { margin-top:14px; }
+      .sphere-label { font-size:8px; letter-spacing:.16em; margin-top:20px; gap:8px; }
+      .sphere-label::before,.sphere-label::after { width:14px; }
       #lit { display:block; padding:calc(52px + var(--safe-top)) calc(var(--pad) + var(--safe-right)) calc(var(--pad) + var(--safe-bottom)) calc(var(--pad) + var(--safe-left)); }
       .plate { width:100%; max-width:560px; margin:0 auto; }
       #litTitle { font-size:clamp(20px,5.6vw,26px); }
@@ -654,6 +816,7 @@
       #grid { padding:calc(var(--pad) * 4.5 + var(--safe-top)) calc(var(--pad) + var(--safe-right)) calc(var(--pad) * 4 + var(--safe-bottom)) calc(var(--pad) + var(--safe-left)); }
       .gridhead { font-size:8px; margin-bottom:18px; }
       .menu-number { display:none; }
+      .finder { bottom:calc(var(--pad) + var(--safe-bottom) + 46px); }
       .litfoot { flex-wrap:wrap; margin-top:13px; }
       .panel-view h2 { font-size:clamp(36px,9.8vw,54px); }
       .panel-lede { font-size:12px; margin-bottom:30px; }
@@ -685,6 +848,92 @@
       .meta { padding-top:10px; }
       .plate { width:min(58vw,calc((100dvh - 80px) * 1.5)); }
       header { padding-top:calc(8px + var(--safe-top)); }
+    }
+    .auth-btn { padding:10px 18px; min-height:40px; border:1px solid var(--control-line); border-radius:3px; color:var(--ink); font-size:11px; letter-spacing:.02em; transition:border-color .25s,color .25s,background .25s; }
+    .auth-btn:hover { border-color:var(--accent); color:var(--accent); }
+    .auth-btn.is-authed { border-color:var(--accent); color:var(--accent); }
+    #login { position:fixed; inset:0; z-index:120; background:var(--bg); opacity:0; visibility:hidden; transition:opacity .45s ease,visibility .45s; }
+    #login.is-open { opacity:1; visibility:visible; }
+    .login-grid { display:grid; grid-template-columns:minmax(0,46fr) minmax(0,54fr); height:100%; }
+    .login-visual { position:relative; overflow:hidden; }
+    .login-photo { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+    .login-photo-main { transform:scale(1.05); animation:loginPhotoDrift 14s ease-in-out infinite alternate; }
+    @keyframes loginPhotoDrift { from { transform:scale(1.05) translate3d(0,0,0); } to { transform:scale(1.12) translate3d(-1.5%,1%,0); } }
+    .login-visual-shade { position:absolute; inset:0; background:linear-gradient(180deg,rgba(8,14,12,.3) 0%,rgba(8,14,12,.12) 38%,rgba(8,14,12,.9) 100%); }
+    .login-photo-sub { position:absolute; right:7%; bottom:9%; inset:auto; width:40%; aspect-ratio:4/3; height:auto; object-fit:cover; border:1px solid rgba(244,242,239,.28); border-radius:10px; box-shadow:0 26px 60px rgba(0,0,0,.55); animation:riseIn .8s var(--ease) .3s backwards; }
+    .login-visual-meta { position:absolute; top:clamp(20px,3.5vh,38px); left:clamp(22px,3vw,46px); display:flex; gap:10px; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:rgba(244,242,239,.72); }
+    .login-visual-copy { position:absolute; right:clamp(22px,3vw,46px); bottom:clamp(22px,4.5vh,58px); left:clamp(22px,3vw,46px); }
+    .login-quote { max-width:520px; font-family:var(--serif); font-weight:400; font-size:clamp(17px,1.65vw,25px); line-height:1.4; color:#f2efe8; }
+    .login-quote-src { display:block; margin-top:13px; font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:rgba(244,242,239,.6); }
+    .login-panel { display:flex; flex-direction:column; justify-content:center; padding:clamp(28px,5vw,76px); overflow-y:auto; }
+    .login-wordmark { font-size:22px; margin-bottom:clamp(24px,4vh,40px); }
+    .login-panel h2 { margin:7px 0 0; font-family:var(--serif); font-weight:400; font-size:clamp(26px,3vw,40px); letter-spacing:-.02em; }
+    .login-sub { max-width:440px; margin:14px 0 28px; color:var(--muted); font-size:13px; line-height:1.7; }
+    .role-list { display:flex; flex-direction:column; gap:10px; max-width:540px; }
+    .role-card { display:grid; grid-template-columns:46px 1fr 22px; align-items:center; gap:16px; padding:15px 18px; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface); text-align:left; transition:border-color .25s,transform .25s,background .25s,box-shadow .25s; }
+    .role-card:hover,.role-card:focus-visible { border-color:var(--accent); transform:translateX(5px); box-shadow:0 12px 30px -18px rgba(0,0,0,.55); }
+    .role-card-icon { display:grid; place-items:center; width:46px; height:46px; border-radius:11px; background:color-mix(in srgb,var(--accent) 13%,transparent); color:var(--accent); transition:background .25s; }
+    .role-card:hover .role-card-icon { background:color-mix(in srgb,var(--accent) 22%,transparent); }
+    .role-card-icon svg { width:21px; height:21px; }
+    .role-card-text b { display:block; font-size:15px; font-weight:600; }
+    .role-card-text small { display:block; margin-top:3px; color:var(--dim); font-size:11px; line-height:1.5; }
+    .role-arrow { color:var(--dim); transition:color .25s,transform .25s; }
+    .role-card:hover .role-arrow,.role-card:focus-visible .role-arrow { color:var(--accent); transform:translate(2px,-2px); }
+    .login-note { max-width:440px; margin:24px 0 0; color:var(--dim); font-size:10px; line-height:1.6; }
+    .login-close { position:absolute; top:calc(var(--pad) + var(--safe-top)); right:calc(var(--pad) + var(--safe-right)); display:grid; place-items:center; width:44px; height:44px; border:1px solid var(--line); border-radius:50%; color:var(--ink); font-size:20px; transition:border-color .25s,transform .25s; }
+    .login-close:hover { border-color:var(--ink); transform:rotate(90deg); }
+    body.login-open .chrome { opacity:0; pointer-events:none; }
+    .ws-role-id { display:flex; align-items:center; gap:16px; }
+    .ws-role-icon { display:grid; place-items:center; width:48px; height:48px; flex:0 0 auto; border-radius:12px; background:color-mix(in srgb,var(--accent) 14%,transparent); color:var(--accent); }
+    .ws-role-icon svg { width:22px; height:22px; }
+    .ws-role-top { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap; margin-bottom:18px; }
+    .ws-role-top h2 { margin:6px 0 6px; }
+    #wsRoleBlurb { color:var(--muted); font-size:13px; max-width:520px; }
+    .ws-role-actions { display:flex; align-items:center; gap:12px; }
+    .ws-role-chip { padding:7px 12px; border:1px solid var(--accent); border-radius:999px; color:var(--accent); font-size:11px; font-weight:500; }
+    .role-tabs { display:flex; gap:4px; margin-bottom:18px; border-bottom:1px solid var(--line-soft); overflow-x:auto; }
+    .role-tabs button { padding:10px 14px 12px; border:0; background:none; color:var(--dim); font-size:13px; border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; }
+    .role-tabs button.is-active { color:var(--ink); border-color:var(--accent); font-weight:500; }
+    .req-card { border:1px solid var(--line-soft); border-left:3px solid var(--line-soft); border-radius:12px; background:var(--surface); padding:18px; margin-bottom:14px; transition:transform .25s var(--ease),box-shadow .25s,border-color .25s; }
+    .req-card:hover { transform:translateY(-2px); box-shadow:0 16px 36px -20px rgba(0,0,0,.55); }
+    .req-card.st-opened { border-left-color:var(--red); }
+    .req-card.st-verified { border-left-color:var(--amber); }
+    .req-card.st-assigned,.req-card.st-enroute { border-left-color:var(--sage); }
+    .req-card.st-resolved { border-left-color:var(--dim); opacity:.75; }
+    .req-card-top { display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap; align-items:center; }
+    .req-id { font-size:11px; letter-spacing:.08em; color:var(--dim); }
+    .req-status { padding:5px 11px; border-radius:999px; font-size:11px; font-weight:500; }
+    .req-status.opened { background:color-mix(in srgb,var(--red) 16%,transparent); color:var(--red); }
+    .req-status.verified { background:color-mix(in srgb,var(--amber) 16%,transparent); color:var(--amber); }
+    .req-status.assigned,.req-status.enroute { background:color-mix(in srgb,var(--sage) 20%,transparent); color:var(--sage); }
+    .req-status.resolved { background:color-mix(in srgb,var(--dim) 16%,transparent); color:var(--dim); }
+    .req-meta { display:flex; gap:16px; flex-wrap:wrap; margin-top:10px; color:var(--muted); font-size:12px; }
+    .req-brief { margin-top:10px; font-size:13px; line-height:1.6; }
+    .req-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; align-items:center; }
+    .photo-preview { display:flex; align-items:center; gap:12px; margin-top:10px; }
+    .photo-preview img { width:64px; height:48px; object-fit:cover; border-radius:6px; border:1px solid var(--line-soft); }
+    .photo-preview small { color:var(--dim); font-size:11px; }
+    .tracker { margin-top:16px; }
+    .tracker ol { display:flex; list-style:none; margin:0; padding:0; }
+    .tracker li { flex:1; position:relative; text-align:center; padding-top:24px; }
+    .tracker li::before { content:""; position:absolute; top:8px; left:0; right:0; height:2px; background:var(--line-soft); }
+    .tracker li:first-child::before { left:50%; }
+    .tracker li:last-child::before { right:50%; }
+    .tracker li i { position:absolute; top:0; left:50%; transform:translateX(-50%); display:grid; place-items:center; width:17px; height:17px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--dim); font-size:9px; font-style:normal; }
+    .tracker li.done::before,.tracker li.now::before { background:var(--accent); }
+    .tracker li.done i { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+    .tracker li.now i { border-color:var(--accent); color:var(--accent); box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent); }
+    .tracker li span { display:block; font-size:10px; font-weight:500; }
+    .tracker li small { display:block; margin-top:2px; color:var(--dim); font-size:9px; }
+    @media (max-width:860px) {
+      .login-grid { grid-template-columns:1fr; }
+      .login-visual { display:none; }
+      .login-panel { padding:calc(var(--pad) + var(--safe-top) + 56px) var(--pad) var(--pad); }
+    }
+    @media (max-width:760px) {
+      .tracker li span { font-size:8px; }
+      .tracker li small { display:none; }
+      .req-meta { gap:10px; }
     }
     @media (prefers-reduced-motion:reduce) {
       *,*::before,*::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.14s !important; }
@@ -794,12 +1043,9 @@
     .ws-icon-btn:hover:not(:disabled) { background:var(--surface-raised); border-color:var(--control-line); }
     .ws-icon-btn:disabled { opacity:.35; cursor:not-allowed; }
     #panel.has-workspace svg { width:18px; height:18px; flex:0 0 auto; }
-    .ws-breadcrumb { display:flex; align-items:center; gap:8px; min-width:0; padding-left:16px; border-left:1px solid var(--line-soft); font-size:13px; color:var(--dim); }
-    .ws-breadcrumb button { padding:4px 0; color:var(--dim); font-size:13px; }
-    .ws-breadcrumb button:hover { color:var(--ink); }
+    .ws-breadcrumb { display:flex; align-items:center; gap:8px; min-width:0; padding-left:16px; border-left:1px solid var(--line-soft); font-size:13px; color:vatton:hover { color:var(--ink); }
     .ws-breadcrumb [aria-current] { overflow:hidden; color:var(--ink); font-weight:500; white-space:nowrap; text-overflow:ellipsis; }
     .ws-top-actions { display:flex; align-items:center; gap:10px; margin-left:auto; }
-    .ws-demo-pill { padding:4px 10px; border:1px solid var(--line); border-radius:999px; font-size:12px; color:var(--dim); white-space:nowrap; }
     #panel.has-workspace .workspace-role { gap:8px; margin-left:0; font-size:13px; color:var(--dim); }
     #panel.has-workspace .workspace-role select { width:auto; max-width:190px; height:38px; padding:0 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; }
     #panel.has-workspace .workspace-top .theme-toggle { width:38px; height:38px; min-width:38px; min-height:38px; padding:0; border:1px solid var(--line); border-radius:8px; }
@@ -894,8 +1140,15 @@
     .ws-pager-btn:hover { border-color:var(--accent); }
     .ws-pager-btn:hover svg { color:var(--accent); }
     #panel.has-workspace .work-toast { border-radius:10px; font-size:13px; }
+    .ws-collapse { margin-top:18px; border:1px solid var(--line-soft); border-radius:var(--ws-radius); background:var(--surface); }
+    .ws-collapse > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; cursor:pointer; list-style:none; font-size:14px; font-weight:500; }
+    .ws-collapse > summary::-webkit-details-marker { display:none; }
+    .ws-collapse > summary i { font-style:normal; font-weight:400; color:var(--dim); transition:transform .2s; }
+    .ws-collapse[open] > summary i { transform:rotate(45deg); }
+    .ws-collapse > summary small { margin-right:auto; margin-left:2px; font-size:12px; font-weight:400; color:var(--dim); }
+    .ws-collapse > :not(summary) { margin:0 18px 18px; }
+    .ws-collapse .table-scroll { margin:0; border:0; border-top:1px solid var(--line-soft); border-radius:0; background:transparent; }
     @media (max-width:1100px) {
-      .ws-demo-pill { display:none; }
       #panel.has-workspace .workspace-shell { grid-template-columns:220px minmax(0,1fr); }
     }
     @media (max-width:900px) {
@@ -935,6 +1188,7 @@
 <body class="revealed">
   <div id="experience">
     <button id="skipPlatform" class="archive-skip" type="button" data-panel="overview">Skip to the platform workspace</button>
+    <div class="stage-glow" aria-hidden="true"></div>
     <div id="scrolltrack" aria-hidden="true"></div>
     <div id="stage" role="main" aria-label="ResQSync response archive. Drag to rotate the photographs, or open the grid from the menu.">
       <div id="world">
@@ -948,27 +1202,50 @@
     </div>
     <div class="vig" aria-hidden="true"></div>
     <section id="grid" inert aria-hidden="true" aria-label="Response archive grid">
-      <div class="gridhead"><span>India / The response archive</span><span>01 — 21</span></div>
+      <div class="gridhead"><span>Indian response archive</span><span>01 — 21</span></div>
       <div class="rows"></div>
-      <p class="gridfoot">Indian place photography and AI-generated response illustrations. Not customer deployments or live incidents.</p>
+      <p class="gridfoot">Real photographs of responders and the places they serve. Not live incidents.</p>
     </section>
     <header class="chrome">
-      <a class="wordmark" href="#" aria-label="ResQSync home">ResQ<em>Sync</em></a>
+      <div class="brand-lockup"><a class="wordmark" href="#" aria-label="ResQSync home">ResQ<em>Sync</em></a><span class="brand-note">INDIA · EMERGENCY RESPONSE</span></div>
       <div class="header-actions">
-        <button class="platform-link" type="button" data-panel="overview">Workspace <span aria-hidden="true">↗</span></button>
+        <button class="auth-btn" type="button" id="authBtn" data-auth>Login</button>
         <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light mode" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></svg><span class="theme-label">Light mode</span></button>
         <button id="menuBtn" class="menu-btn" type="button" aria-expanded="false" aria-controls="menu" aria-label="Open menu"><span class="menu-label">Menu</span><span class="bars" aria-hidden="true"><i></i><i></i></span></button>
       </div>
     </header>
     <aside class="bio chrome">
-      <div class="who"><img id="avatar" alt="An illustrative Indian response team" width="52" height="52"><div><b>One coordinated response.</b><span>Districts · State agencies · Relief networks</span></div></div>
-      <p>Track an incident, find available crews, and keep the next team informed. A shared workspace for India's response networks.</p>
-      <button class="bio-link" type="button" data-panel="overview">Open the workspace <span aria-hidden="true">↗</span></button>
+      <div class="who"><img id="avatar" alt="An illustrative Indian response team" width="52" height="52"><div><b>One shared picture.</b><span>Across response teams in India</span></div></div>
+      <p>See what is happening, what is available and where the next decision is needed.</p>
+      <button class="bio-link" type="button" data-panel="overview">Explore the workspace <span aria-hidden="true">↗</span></button>
     </aside>
-    <div class="colophon chrome"><span>The Response Archive 2026</span><button type="button" data-panel="contact">Plan your deployment <span aria-hidden="true">↗</span></button></div>
+    <div class="colophon chrome"><span>INDIA · RESQSYNC / 2026</span></div>
     <button id="gridBtn" class="gridbtn" type="button" aria-label="Toggle grid view" aria-pressed="false"><b></b><b></b><b></b><b></b></button>
-    <div class="cue chrome"><s></s><span>Drag to rotate</span></div>
+    <div class="cue chrome"><s></s><span>Drag to look around</span></div>
     <button id="motionToggle" class="motion-control chrome" type="button" aria-label="Pause sphere rotation" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3v10M11 3v10" stroke="currentColor" stroke-width="1.5"/></svg></button>
+    <div id="login" role="dialog" aria-modal="true" aria-labelledby="loginTitle" aria-hidden="true" inert>
+      <div class="login-grid">
+        <div class="login-visual" aria-hidden="true">
+          <img class="login-photo login-photo-main" src="https://images.pexels.com/photos/17935458/pexels-photo-17935458.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=900" alt="">
+          <div class="login-visual-shade"></div>
+          <img class="login-photo login-photo-sub" src="https://images.pexels.com/photos/5964975/pexels-photo-5964975.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=400&w=520" alt="">
+          <div class="login-visual-meta"><span>India response network</span><span>·</span><span>21 field photographs</span></div>
+          <div class="login-visual-copy">
+            <p class="login-quote">“When three incidents ask for the same boat, someone has to decide — and be able to explain why.”</p>
+            <span class="login-quote-src">The principle ResQSync is built on</span>
+          </div>
+        </div>
+        <div class="login-panel">
+          <a class="wordmark login-wordmark" href="#" data-login-close>ResQ<em>Sync</em></a>
+          <p class="overline">Sign in</p>
+          <h2 id="loginTitle">Choose your workspace</h2>
+          <p class="login-sub">Each role opens a desk built for exactly what that role does. A request raised by a help seeker flows straight to a crisis manager's queue.</p>
+          <div class="role-list" id="roleGrid"></div>
+          <p class="login-note">Demonstration access. No account is created and nothing leaves this browser.</p>
+        </div>
+      </div>
+      <button class="login-close" type="button" data-login-close aria-label="Close sign in">×</button>
+    </div>
     <div id="menu" role="dialog" aria-modal="true" aria-label="Main menu" aria-hidden="true" inert>
       <div class="menu-layout">
         <div class="menu-feature">
@@ -994,7 +1271,7 @@
           </div>
         </nav>
       </div>
-      <div class="menu-footer"><p>Demo workspace. No live incidents or dispatch.</p><div class="menu-secondary"><a href="#archive" data-grid>Photographs</a><button type="button" data-panel="trust">Privacy &amp; security</button><button type="button" data-panel="contact">Deployment brief</button><button type="button" data-panel="credits">Image credits</button></div><button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light mode" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></svg><span class="theme-label">Light mode</span></button></div>
+      <div class="menu-footer"><p>Sign in to open a role workspace. No live incidents or dispatch.</p><div class="menu-secondary"><a href="#archive" data-grid>Photographs</a><button type="button" data-watch-intro>Watch intro</button><button type="button" data-auth>Sign in</button><button type="button" data-panel="trust">Privacy &amp; security</button></div><button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light mode" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></svg><span class="theme-label">Light mode</span></button></div>
     </div>
     <div id="lit" role="dialog" aria-modal="true" aria-labelledby="litTitle" aria-describedby="litNote" aria-hidden="true" inert>
       <button class="scrim" type="button" data-close aria-label="Close field note" tabindex="-1"></button>
@@ -1009,9 +1286,17 @@
       <button class="panel-close" type="button" data-close-panel>Close <span aria-hidden="true">×</span></button>
       <div class="panel-content">
         <div class="panel-view" data-view="platform" hidden>
-          <div class="workspace-top"><button class="ws-icon-btn ws-nav-toggle" type="button" data-ws-drawer aria-label="Open navigation" aria-expanded="false" aria-controls="wsSidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><a class="workspace-wordmark" href="#" data-home>ResQ<em>Sync</em></a><nav class="ws-breadcrumb" aria-label="Breadcrumb"><button type="button" data-panel="overview">Workspace</button><span aria-hidden="true">/</span><span id="wsCrumb" aria-current="page">Overview</span></nav><div class="ws-top-actions"><span class="ws-demo-pill">Demo data</span><label class="workspace-role"><span>View as</span><select id="demoRole" aria-label="Preview as a different user role"><option value="admin">Admin</option><option value="crisis-manager">Crisis manager</option><option value="resource-coordinator">Resource coordinator</option><option value="viewer">Viewer</option></select></label><button class="theme-toggle theme-toggle--compact" type="button" data-theme-toggle aria-label="Switch to light mode" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></svg><span class="theme-label">Light mode</span></button><button class="ws-exit" type="button" data-close-panel aria-label="Back to site"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg><span>Back to site</span></button></div></div>
+          <div class="workspace-top" hidden><button class="ws-icon-btn ws-nav-toggle" type="button" data-ws-drawer aria-label="Open navigation" aria-expanded="false" aria-controls="wsSidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><a class="workspace-wordmark" href="#" data-home>ResQ<em>Sync</em></a><nav class="ws-breadcrumb" aria-label="Breadcrumb"><button type="button" data-panel="overview">Workspace</button><span aria-hidden="true">/</span><span id="wsCrumb" aria-current="page">Overview</span></nav><div class="ws-top-actions"><label class="workspace-role"><span>View as</span><select id="demoRole" aria-label="Preview as a different user role"><option value="admin">Admin</option><option value="crisis-manager">Crisis manager</option><option value="resource-coordinator">Resource coordinator</option></select></label><button class="theme-toggle theme-toggle--compact" type="button" data-theme-toggle aria-label="Switch to light mode" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></svg><span class="theme-label">Light mode</span></button></div></div>
           <div class="workspace-shell"><aside class="workspace-sidebar" id="wsSidebar" aria-label="Workspace navigation"><nav aria-label="Workspace modules"><div class="ws-nav-group"><p>Operations</p><button type="button" data-panel="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg><span class="ws-nav-label">Overview</span></button><button type="button" data-panel="crises"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.2h.01"/></svg><span class="ws-nav-label">Crises</span><span class="ws-badge" data-badge="crises"></span></button><button type="button" data-panel="resources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4v-9Z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/></svg><span class="ws-nav-label">Resources</span></button><button type="button" data-panel="conflicts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h12l-3-3M20 17H8l3 3"/></svg><span class="ws-nav-label">Allocations</span><span class="ws-badge" data-badge="conflicts"></span></button></div><div class="ws-nav-group"><p>Team</p><button type="button" data-panel="users"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.3"/><path d="M2.8 20c.8-3.5 3.3-5.6 6.2-5.6s5.4 2.1 6.2 5.6M16 4.8a3.3 3.3 0 0 1 0 6.4M18 14.6c1.8.8 2.9 2.6 3.2 5.4"/></svg><span class="ws-nav-label">People &amp; access</span></button><button type="button" data-panel="collaboration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5Z"/></svg><span class="ws-nav-label">Messages &amp; files</span><span class="ws-badge" data-badge="collaboration"></span></button></div><div class="ws-nav-group"><p>Insights</p><button type="button" data-panel="analytics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20v-8M12 20V5M19 20v-11M3 20h18"/></svg><span class="ws-nav-label">Reports</span></button><button type="button" data-panel="decision"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg><span class="ws-nav-label">Scenario planning</span></button></div></nav><div class="workspace-sidebar-foot"><p>Sample data, saved on this device. No live dispatch.</p><button type="button" data-panel="trust">Privacy &amp; security</button><button type="button" data-reset-demo>Reset demo data</button></div></aside><div class="ws-scrim" data-ws-drawer-close aria-hidden="true"></div><main class="workspace-content" id="workspaceContent"><h2>Overview</h2></main></div>
           <div id="workToast" class="work-toast" role="status" aria-live="polite" hidden></div>
+        </div>
+        <div class="panel-view" data-view="workspace" hidden>
+          <div class="ws-role-top">
+            <div class="ws-role-id"><span class="ws-role-icon" id="wsRoleIcon"></span><div><p class="overline" data-role-eyebrow>ROLE WORKSPACE</p><h2 id="panelTitle" data-role-title tabindex="-1"></h2><p data-role-blurb></p></div></div>
+            <div class="ws-role-actions"><span class="ws-role-chip" id="wsRoleChip"></span><button type="button" class="work-btn" data-switch-role>Switch role</button></div>
+          </div>
+          <div class="role-tabs" id="roleTabs" role="tablist" aria-label="Workspace sections"></div>
+          <div id="roleWorkspace"></div>
         </div>
         <div class="panel-view" data-view="trust" hidden>
           <p class="overline">02 / Trust &amp; accountability</p>
@@ -1032,6 +1317,7 @@
           <form id="briefingForm">
             <div class="form-pair"><label>Your name<input name="name" autocomplete="name" placeholder="Aarav Sharma" required></label><label>Work email<input name="email" type="email" autocomplete="email" placeholder="you@organization.in" required></label></div>
             <label>Organization<input name="organization" autocomplete="organization" placeholder="Agency or response network" required></label>
+            <label>Your network<seleplete="organization" placeholder="Agency or response network" required></label>
             <label>Your network<select name="network" required><option value="" disabled selected>Select your response context</option><option>Municipal Fire &amp; EMS</option><option>Trauma systems</option><option>State emergency management</option><option>Humanitarian &amp; NGOs</option><option>Multi-agency / other</option></select></label>
             <label>Which resource conflicts do you need to solve?<textarea name="needs" rows="3" placeholder="Teams, rescue vehicles, medical supplies, regional capacity…"></textarea></label>
             <p class="form-note">Do not include patient details, restricted information, or live incident data.</p>
@@ -1049,6 +1335,16 @@
       </div>
     </div>
   </div>
+  <section id="intro" role="dialog" aria-modal="true" aria-labelledby="introTitle" aria-describedby="introDescription" aria-hidden="true" tabindex="-1" hidden inert>
+    <div class="intro-media" aria-hidden="true">
+      <img src="https://images.pexels.com/photos/17935458/pexels-photo-17935458.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200" alt="" fetchpriority="high">
+      <video id="film" muted playsinline preload="none" disablepictureinpicture data-src="https://videos.pexels.com/video-files/29988893/12867892_1920_1080_24fps.mp4" poster="https://images.pexels.com/photos/17935458/pexels-photo-17935458.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200"></video>
+    </div>
+    <div class="intro-shade" aria-hidden="true"></div>
+    <div class="intro-top"><span class="intro-wordmark">ResQ<em>Sync</em></span><span>The response archive / India</span></div>
+    <div class="intro-copy"><h2 id="introTitle">ResQ<em>Sync</em></h2><p>One network. Across India.</p><small id="introDescription">For the people who answer the call.</small></div>
+    <div class="intro-bottom"><span class="intro-progress" aria-hidden="true"><i id="introProgress"></i></span><div class="intro-controls"><button type="button" data-intro-workspace>Open workspace <span aria-hidden="true">↗</span></button><button class="intro-skip" id="skip" type="button" data-intro-skip>Skip intro</button></div></div>
+  </section>
   <div id="dot" aria-hidden="true"></div>
   <p id="themeStatus" class="theme-status" role="status" aria-live="polite"></p>
   <noscript><div class="no-script">ResQSync<p>Enable JavaScript to explore the response archive.</p></div></noscript>
@@ -1071,9 +1367,9 @@
 
     const shots = [
       {
-        image:"/images/india-flood-response.jpg", title:"When the Water Rises", place:"Kerala · Crisis management",
-        note:"An illustrative Indian flood response. Create an incident, track its severity and status, and keep a geographic picture of the response. A shared event timeline helps the team arriving next understand what has already changed. This is an AI-generated illustration, not a real incident.",
-        alt:"AI-generated illustration of an Indian rescue team guiding a boat through a flooded Kerala street", credit:"ResQSync / AI-generated illustration", generated:true, source:"/images/india-flood-response.jpg",
+        image:"https://images.pexels.com/photos/17935458/pexels-photo-17935458.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200", title:"When the water reaches the door", place:"Bengal delta · Evacuation",
+        note:"Families wade out as floodwater takes the village. Evacuation requests like this are exactly what ResQSync routes: who needs help, how many people, and which team is closest.",
+        alt:"Women and children wade through floodwater in a village in Bengal", credit:"Kuntal Biswas / Pexels", source:"https://www.pexels.com/photo/women-wearing-traditional-clothing-standing-with-kids-in-a-flooded-village-17935458/",
       },
       {
         image:"https://images.pexels.com/photos/17609960/pexels-photo-17609960.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
@@ -1082,9 +1378,9 @@
         alt:"A rickshaw navigating a flooded street in New Delhi", credit:"Shantum Singh", source:"https://www.pexels.com/photo/washing-the-rickshaw-with-flood-water-17609960/",
       },
       {
-        image:"/images/india-fire-response.jpg", title:"Ready Before the Siren", place:"Mumbai · Resource management",
-        note:"An inventory is useful only when capabilities and availability stay attached to each resource. Track crews, vehicles, supplies, facilities, and maintenance before assigning them to an incident. This fictional fire-response scene is AI-generated and has no agency affiliation.",
-        alt:"AI-generated illustration of Indian firefighters preparing a fire engine in Mumbai", credit:"ResQSync / AI-generated illustration", generated:true, source:"/images/india-fire-response.jpg",
+        image:"https://images.pexels.com/photos/5965109/pexels-photo-5965109.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200", title:"Ready before the siren", place:"Fire brigade · Staging",
+        note:"A firefighter checks the engine bay before the call comes in. Resource management means knowing what every vehicle carries and whether it is serviceable before an incident claims it.",
+        alt:"A firefighter arranges equipment inside a fire engine compartment", credit:"Anna Shvets / Pexels", source:"https://www.pexels.com/photo/firefighter-with-fire-engine-equipment-5965109/",
       },
       {
         image:"https://images.pexels.com/photos/28867945/pexels-photo-28867945.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
@@ -1099,9 +1395,9 @@
         alt:"Clouds and mountains surrounding Kedarnath Valley in Uttarakhand", credit:"Soubhagya Maharana", source:"https://www.pexels.com/photo/mountains-around-valley-18359764/",
       },
       {
-        image:"/images/india-medical-response.jpg", title:"Capacity, Connected", place:"Bengaluru · Medical resources",
-        note:"A trauma team, an ambulance, and a ventilator are different resources. Keep each capability visible, track its assignment, and flag overlapping demand. This AI-generated medical-response illustration does not depict a hospital partner or an actual patient.",
-        alt:"AI-generated illustration of two Indian paramedics preparing a stretcher beside an ambulance", credit:"ResQSync / AI-generated illustration", generated:true, source:"/images/india-medical-response.jpg",
+        image:"https://images.pexels.com/photos/6519847/pexels-photo-6519847.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200", title:"The ambulance pool", place:"EMS · Ready units",
+        note:"An ambulance with its doors open is capacity waiting for a decision. Track each unit's status so the coordinator knows what is free, what is en route, and what is already committed.",
+        alt:"A blue ambulance parked at the roadside with its rear doors open", credit:"RDNE Stock project / Pexels", source:"https://www.pexels.com/photo/blue-and-yellow-ambulance-6519847/",
       },
       {
         image:"https://images.pexels.com/photos/29685486/pexels-photo-29685486.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
@@ -1116,9 +1412,9 @@
         alt:"Floodwater beneath a bridge in New Delhi", credit:"Shantum Singh", source:"https://www.pexels.com/photo/a-flooded-area-17609963/",
       },
       {
-        image:"/images/india-relief-supplies.jpg", title:"What Is Still Available", place:"Assam · Supplies and logistics",
-        note:"Know which relief stocks are available, reserved, or already assigned. Capability profiles, usage history, and maintenance logs support the next request as well as the current one. This relief-logistics scene is an AI-generated illustration.",
-        alt:"AI-generated illustration of Indian volunteers inventorying relief supplies in Assam", credit:"ResQSync / AI-generated illustration", generated:true, source:"/images/india-relief-supplies.jpg",
+        image:"https://images.pexels.com/photos/6646871/pexels-photo-6646871.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200", title:"Sorting the relief store", place:"Volunteers · Supplies",
+        note:"Volunteers sort medicine and food into boxes for distribution. Supply tracking keeps that work honest: what is packed, what is promised, and what is still on the shelf.",
+        alt:"Two volunteers sort medicine and food supplies into boxes outdoors", credit:"RDNE Stock project / Pexels", source:"https://www.pexels.com/photo/a-man-and-a-woman-packing-relief-goods-in-boxes-6646871/",
       },
       {
         image:"https://images.pexels.com/photos/33329470/pexels-photo-33329470.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
@@ -1151,9 +1447,9 @@
         alt:"A market street on a rainy day in Raipur, India", credit:"Shubham Thakur", source:"https://www.pexels.com/photo/rainy-day-in-raipur-market-street-scene-39332347/",
       },
       {
-        image:"/images/india-command-center.jpg", title:"People Make the Call", place:"India · Decision support",
-        note:"The engine compares competing requests. Authorized people approve the recommendation, negotiate alternatives, or override it with a recorded reason. This AI-generated control-room illustration does not depict an actual government facility.",
-        alt:"AI-generated illustration of Indian emergency coordinators reviewing operational screens", credit:"ResQSync / AI-generated illustration", generated:true, source:"/images/india-command-center.jpg",
+        image:"https://images.pexels.com/photos/5964975/pexels-photo-5964975.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200", title:"People make the call", place:"Command · The decision",
+        note:"Two crew leads talk through the next move beside the engine. Software can rank the options, but the allocation is still a human decision, made with the picture in front of them.",
+        alt:"Two firefighters in full gear discuss strategy beside a fire engine", credit:"Anna Shvets / Pexels", source:"https://www.pexels.com/photo/firefighters-talking-by-fire-engine-5964975/",
       },
       {
         image:"https://images.pexels.com/photos/35356944/pexels-photo-35356944.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
@@ -1264,6 +1560,7 @@
     const stage = $("#stage");
     const world = $("#world");
     const headline = $("#headline");
+    const stageGlow = $(".stage-glow");
     const cards = $$(".card");
     const grid = $("#grid");
     const gridImages = $$("#grid .rows img");
@@ -1275,6 +1572,9 @@
     const plate = $(".plate");
     const panel = $("#panel");
     const dot = $("#dot");
+    const intro = $("#intro");
+    const film = $("#film");
+    const introProgress = $("#introProgress");
     const reduced = matchMedia("(prefers-reduced-motion: reduce)");
     const coarse = matchMedia("(pointer: coarse)");
     const fine = matchMedia("(hover: hover) and (pointer: fine)");
@@ -1288,10 +1588,14 @@
     let menuOpen = false, gridOpen = false, litOpen = false, panelOpen = false;
     let focused = -1, currentShot = -1, sourceNode = null, lightboxReturn = null, panelReturn = null;
     let mediaToken = 0, closeTimer = 0, lightboxFrame = 0;
+    let introActive = false, introStartedAt = 0, introDuration = 5200, introGeneration = 0;
+    let introEndTimer = 0, introFallbackTimer = 0, introHideTimer = 0;
+    let introReturn = null;
     let locked = false, parkedScroll = 0, deep = false;
     const state = { spin:0, tilt:-4, camZ:0, dragX:0, dragY:0, velX:0, velY:0, dragging:false,autoRotate:!reduced.matches };
     let pointer = null;
     let lastFrame = performance.now(), spinResumeAt = 0;
+    let sphereBorn = 0, lastPlacedR = -1;
     const cursor = { x:innerWidth / 2, y:innerHeight / 2, tx:innerWidth / 2, ty:innerHeight / 2, seen:false };
 
     body.classList.remove("locked");
@@ -1301,13 +1605,13 @@
     body.style.overflow = "";
 
     const featureModules = [
-      { id:"crises",name:"Crisis Management",label:"Crises",number:"01",description:"Track incidents, update their status, and see the latest actions in each location.",features:["Crisis event creation and tracking","Local instant status updates: active, escalating, resolved","Severity levels and incident categories","Timeline of events and actions","Geographic coordinates, plotted locations, and map links"] },
-      { id:"resources",name:"Resource Management",label:"Resources",number:"02",description:"Check available crews, equipment, supplies, and facilities. Keep assignments and maintenance records up to date.",features:["Personnel, equipment, supplies, and facilities inventory","Availability and assigned-capacity tracking","Resource allocation to active crises","Capability profiles and specifications","Usage history and maintenance logs"] },
-      { id:"conflicts",name:"Conflict Resolution",label:"Allocations",number:"03",description:"Review requests for the same resources. Approve a recommendation or record why a different allocation is needed.",features:["Automatic detection of competing resource requests","Transparent severity / response-time priority scoring","Manual override and approval workflows","Local stakeholder notification records","Negotiation, compromise, and decision history"] },
-      { id:"users",name:"Users & Roles",label:"People & access",number:"04",description:"Manage the sample team, check each role's permissions, and review the activity log.",features:["Admin, crisis manager, resource coordinator, and viewer roles","Multi-organization and agency profiles","Role-based action gating in the demo","Authentication and server authorization requirements explained","Activity audit logs and local invitation previews"] },
-      { id:"collaboration",name:"Communication & Collaboration",label:"Messages & files",number:"05",description:"Post an update, add a note to an incident, or attach a document to the conversation.",features:["Local messaging with updates across same-browser tabs","Email, SMS, and push preferences (delivery not connected)","Comment threads attached to crises and decisions","Document attachment metadata and session-local file downloads","Local in-app stakeholder notifications"] },
-      { id:"analytics",name:"Analytics & Reporting",label:"Reports",number:"06",description:"Review resource use and recorded response times. Download the sample records as a PDF or Excel-compatible file.",features:["Dashboard with calculated key metrics","Resource utilization reports by resource type","Response time analytics from sample records","Historical incident trends and date-range selection","Native PDF download and Excel-compatible XML export"] },
-      { id:"decision",name:"Decision Support",label:"Scenario planning",number:"07",description:"Change the available stock and priority weights to compare an allocation's coverage and estimated cost.",features:["Automated resource-allocation recommendation heuristic","Impact assessment through covered and uncovered demand","Scenario simulation with adjustable capacity and priority weights","Indicative INR cost and coverage analysis","Saved simulations with an audit trail"] },
+      { id:"crises",name:"Crisis Management",label:"Crises",number:"01",description:"Keep track of what's happening, where, and how serious it is.",features:["Crisis event creation and tracking","Local instant status updates: active, escalating, resolved","Severity levels and incident categories","Timeline of events and actions","Geographic coordinates, plotted locations, and map links"] },
+      { id:"resources",name:"Resource Management",label:"Resources",number:"02",description:"See what you have, what's free, and what's already committed.",features:["Personnel, equipment, supplies, and facilities inventory","Availability and assigned-capacity tracking","Resource allocation to active crises","Capability profiles and specifications","Usage history and maintenance logs"] },
+      { id:"conflicts",name:"Conflict Resolution",label:"Allocations",number:"03",description:"When two incidents need the same thing, decide who gets it first.",features:["Automatic detection of competing resource requests","Transparent severity / response-time priority scoring","Manual override and approval workflows","Local stakeholder notification records","Negotiation, compromise, and decision history"] },
+      { id:"users",name:"Users & Roles",label:"People & access",number:"04",description:"Who's on the team, and what each person can do.",features:["Admin, crisis manager, resource coordinator, and viewer roles","Multi-organization and agency profiles","Role-based action gating in the demo","Authentication and server authorization requirements explained","Activity audit logs and local invitation previews"] },
+      { id:"collaboration",name:"Communication & Collaboration",label:"Messages & files",number:"05",description:"Updates, notes, and files, kept with the incident they belong to.",features:["Local messaging with updates across same-browser tabs","Email, SMS, and push preferences (delivery not connected)","Comment threads attached to crises and decisions","Document attachment metadata and session-local file downloads","Local in-app stakeholder notifications"] },
+      { id:"analytics",name:"Analytics & Reporting",label:"Reports",number:"06",description:"How resources are being used, and how quickly teams respond.",features:["Dashboard with calculated key metrics","Resource utilization reports by resource type","Response time analytics from sample records","Historical incident trends and date-range selection","Native PDF download and Excel-compatible XML export"] },
+      { id:"decision",name:"Decision Support",label:"Scenario planning",number:"07",description:"Try an allocation on paper before you commit to it.",features:["Automated resource-allocation recommendation heuristic","Impact assessment through covered and uncovered demand","Scenario simulation with adjustable capacity and priority weights","Indicative INR cost and coverage analysis","Saved simulations with an audit trail"] },
     ];
     const moduleIds = ["overview",...featureModules.map((module) => module.id)];
     const roleNames = { admin:"Admin","crisis-manager":"Crisis manager","resource-coordinator":"Resource coordinator",viewer:"Viewer" };
@@ -1537,14 +1841,14 @@
     function conflictsView() {
       const pools = pressuredPools();
       const chosen = resourceById(ui.conflictResource) || pools[0] || db.resources[0];
-      return `<div class="workspace-tools"><div><span class="state-label critical">${pools.length} pools under demand pressure</span></div><div><button type="button" class="work-btn" data-toggle-form="newRequest"${disabled("allocate")}>Add a competing request +</button><button type="button" class="work-btn" data-recalculate>Recalculate priorities ↻</button></div></div><p class="demo-notice">Priority score = severity (65%) + sample response-time readiness (35%). This deterministic demonstration is not medical triage. Available inventory constrains every approved allocation.</p><form class="work-form inline-form" id="newRequest" data-work-form="request" hidden><h3>Add a resource request</h3><div class="work-form-grid"><label>Resource pool<select name="resourceId" class="work-select" required>${resourceOptions(chosen.id)}</select></label><label>Active crisis<select name="crisisId" class="work-select" required>${crisisOptions()}</select></label><label>Additional requested quantity<input name="quantity" class="work-input" type="number" min="1" max="1000000" step="1" value="2" required></label><label>Reason<input name="reason" class="work-input" required maxlength="200" placeholder="Unmet operational demand"></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Record request</button><button type="button" class="work-btn" data-toggle-form="newRequest">Cancel</button></div></form>${pools.length ? pools.map((resource) => {
+      return `<div class="workspace-tools"><div><span class="state-label critical">${pools.length} pools under demand pressure</span></div><div><button type="button" class="work-btn" data-toggle-form="newRequest"${disabled("allocate")}>Add a competing request +</button><button type="button" class="work-btn" data-recalculate>Recalculate priorities ↻</button></div></div><p class="demo-notice">Suggestions are ranked by severity (65%) and sample response time (35%), and never exceed what's actually available. A person always makes the final call.</p><form class="work-form inline-form" id="newRequest" data-work-form="request" hidden><h3>Add a resource request</h3><div class="work-form-grid"><label>Resource pool<select name="resourceId" class="work-select" required>${resourceOptions(chosen.id)}</select></label><label>Active crisis<select name="crisisId" class="work-select" required>${crisisOptions()}</select></label><label>Additional requested quantity<input name="quantity" class="work-input" type="number" min="1" max="1000000" step="1" value="2" required></label><label>Reason<input name="reason" class="work-input" required maxlength="200" placeholder="Unmet operational demand"></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Record request</button><button type="button" class="work-btn" data-toggle-form="newRequest">Cancel</button></div></form>${pools.length ? pools.map((resource) => {
         const plan = recommendation(resource), demand = plan.reduce((sum,item) => sum+item.quantity,0);
         return `<section class="conflict-item"><div class="conflict-top"><div><h3>${esc(resource.name)}</h3><p>${fmt(demand)} additional ${esc(resource.unit)} requested / ${fmt(available(resource))} available / ${plan.length > 1 ? "competing incidents" : "uncovered demand"}</p></div><button type="button" class="work-btn primary" data-approve-pool="${esc(resource.id)}"${!has("approve") || available(resource) === 0 ? " disabled" : ""}>Approve recommendation ↗</button></div>${plan.map((item) => `<div class="allocation-line"><span>${esc(item.crisis.city)} / ${esc(item.crisis.title)}</span><small>Score ${item.score}</small><div class="capacity-bar"><i style="width:${item.score}%"></i></div><b>${item.allocation} / ${item.quantity}</b></div>`).join("")}<p class="map-footnote">Proposed assignment / requested quantity. Shortfall: ${fmt(Math.max(0,demand-available(resource)))} ${esc(resource.unit)}. ${resource.maintenance ? "This pool is unavailable for maintenance." : "A manager or admin must approve."}</p></section>`;
-      }).join("") : '<p class="work-empty">No current resource shortfalls. Add competing requests to explore the workflow.</p>'}<h3 class="section-title">Manual override &amp; negotiation</h3><form class="work-form inline-form" data-work-form="override"><div class="work-form-grid"><label>Resource pool<select name="resourceId" class="work-select" required>${resourceOptions(chosen.id)}</select></label><label>Active crisis<select name="crisisId" class="work-select" required>${crisisOptions()}</select></label><label>Quantity to allocate<input name="quantity" class="work-input" type="number" min="1" max="1000000" step="1" value="1" required></label><label>Recorded override reason<input name="reason" class="work-input" required minlength="8" maxlength="250" placeholder="Explain why the recommendation should change"></label></div><div class="form-actions"><button type="submit" class="work-btn"${disabled("approve")}>Record override &amp; allocate</button><p>Capacity limits still apply.</p></div></form><form class="work-form" data-work-form="negotiation"><div class="work-form-grid"><label>Resource<select name="resourceId" class="work-select">${resourceOptions(chosen.id)}</select></label><label>Compromise proposal<input name="proposal" class="work-input" required minlength="5" maxlength="350" placeholder="Share capacity now, arrange partner backfill later..."></label></div><div class="form-actions"><button type="submit" class="work-btn"${disabled("allocate")}>Log negotiation proposal</button></div></form>${db.negotiations.length ? `<ul class="decision-list" style="margin-top:20px">${db.negotiations.slice(0,6).map((entry) => `<li><small>${esc(when(entry.at))} IST / ${esc(entry.actor)} / ${esc(resourceById(entry.resourceId)?.name)}</small>${esc(entry.proposal)}<div class="detail-controls">${statusLabel(entry.status)}${entry.status === "pending" ? `<button type="button" class="work-btn" data-agree-negotiation="${esc(entry.id)}"${disabled("approve")}>Record agreement</button>` : ""}</div></li>`).join("")}</ul>` : ""}<h3 class="section-title">Decision record</h3>${db.decisions.length ? `<ul class="decision-list">${db.decisions.slice(0,8).map((decision) => `<li><small>${esc(when(decision.at))} IST / ${esc(decision.actor)} / ${esc(decision.type)}</small>${esc(decision.text)}</li>`).join("")}</ul>` : '<p class="work-empty">Approve a recommendation or record an override to create a decision record and local stakeholder notice.</p>'}`;
+      }).join("") : '<p class="work-empty">No current resource shortfalls. Add competing requests to explore the workflow.</p>'}<details class="ws-collapse"><summary>Need something different?<small>Override the suggestion or propose a compromise</small><i aria-hidden="true">+</i></summary><form class="work-form" data-work-form="override"><div class="work-form-grid"><label>Resource pool<select name="resourceId" class="work-select" required>${resourceOptions(chosen.id)}</select></label><label>Active crisis<select name="crisisId" class="work-select" required>${crisisOptions()}</select></label><label>Quantity to allocate<input name="quantity" class="work-input" type="number" min="1" max="1000000" step="1" value="1" required></label><label>Recorded override reason<input name="reason" class="work-input" required minlength="8" maxlength="250" placeholder="Explain why the recommendation should change"></label></div><div class="form-actions"><button type="submit" class="work-btn"${disabled("approve")}>Record override &amp; allocate</button><p>Capacity limits still apply.</p></div></form><form class="work-form" data-work-form="negotiation"><div class="work-form-grid"><label>Resource<select name="resourceId" class="work-select">${resourceOptions(chosen.id)}</select></label><label>Compromise proposal<input name="proposal" class="work-input" required minlength="5" maxlength="350" placeholder="Share capacity now, arrange partner backfill later..."></label></div><div class="form-actions"><button type="submit" class="work-btn"${disabled("allocate")}>Log negotiation proposal</button></div></form></details>${db.negotiations.length ? `<ul class="decision-list" style="margin-top:20px">${db.negotiations.slice(0,6).map((entry) => `<li><small>${esc(when(entry.at))} IST / ${esc(entry.actor)} / ${esc(resourceById(entry.resourceId)?.name)}</small>${esc(entry.proposal)}<div class="detail-controls">${statusLabel(entry.status)}${entry.status === "pending" ? `<button type="button" class="work-btn" data-agree-negotiation="${esc(entry.id)}"${disabled("approve")}>Record agreement</button>` : ""}</div></li>`).join("")}</ul>` : ""}<h3 class="section-title">Decision record</h3>${db.decisions.length ? `<ul class="decision-list">${db.decisions.slice(0,8).map((decision) => `<li><small>${esc(when(decision.at))} IST / ${esc(decision.actor)} / ${esc(decision.type)}</small>${esc(decision.text)}</li>`).join("")}</ul>` : '<p class="work-empty">Approve a recommendation or record an override to create a decision record and local stakeholder notice.</p>'}`;
     }
 
     function usersView() {
-      return `<div class="workspace-tools"><div><span class="module-count">${db.users.length} demo users / ${new Set(db.users.map((user) => user.organization)).size} organizations</span></div><button type="button" class="work-btn primary" data-toggle-form="newUser"${disabled("users")}>Prepare local invitation +</button></div><p class="workspace-warning">Identity provider not connected. The role selector previews interface permissions only; it is not authentication or secure authorization. A real deployment needs server-enforced identity, organization isolation, and access policies.</p><form class="work-form inline-form" id="newUser" data-work-form="user" hidden><h3>Prepare a demo invitation</h3><div class="work-form-grid"><label>Name<input name="name" class="work-input" required maxlength="65" placeholder="Priya Sen"></label><label>Email<input name="email" class="work-input" type="email" required maxlength="120" placeholder="priya@example.org"></label><label>Organization<input name="organization" class="work-input" required maxlength="75" placeholder="Training relief collective"></label><label>Role<select name="role" class="work-select">${roleOptions("viewer")}</select></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Create local invitation record</button><button type="button" class="work-btn" data-toggle-form="newUser">Cancel</button><p>No email is sent. Use fictional identities.</p></div></form><div class="table-scroll"><table class="work-table"><thead><tr><th>User</th><th>Organization</th><th>Role</th><th>Access status</th></tr></thead><tbody>${db.users.map((user) => `<tr><td>${esc(user.name)}<small>${esc(user.email)}</small></td><td>${esc(user.organization)}</td><td><select class="work-select" data-user-role="${esc(user.id)}" aria-label="Demo role for ${esc(user.name)}"${disabled("users")}>${roleOptions(user.role)}</select></td><td>${esc(user.status)}</td></tr>`).join("")}</tbody></table></div><h3 class="section-title">Role-based access model</h3><div class="table-scroll"><table class="role-matrix"><thead><tr><th>Action</th><th>Admin</th><th>Crisis manager</th><th>Resource coordinator</th><th>Viewer</th></tr></thead><tbody><tr><td>View incidents &amp; reports</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr><tr><td>Create &amp; update crises</td><td>Yes</td><td>Yes</td><td>—</td><td>—</td></tr><tr><td>Edit inventory &amp; maintenance</td><td>Yes</td><td>—</td><td>Yes</td><td>—</td></tr><tr><td>Assign available resources</td><td>Yes</td><td>Yes</td><td>Yes</td><td>—</td></tr><tr><td>Approve or override priorities</td><td>Yes</td><td>Yes</td><td>—</td><td>—</td></tr><tr><td>Manage users &amp; roles</td><td>Yes</td><td>—</td><td>—</td><td>—</td></tr></tbody></table></div><h3 class="section-title">Activity audit log</h3>${auditList(db.audit.slice(0,12))}`;
+      return `<div class="workspace-tools"><div><span class="module-count">${db.users.length} demo users / ${new Set(db.users.map((user) => user.organization)).size} organizations</span></div><button type="button" class="work-btn primary" data-toggle-form="newUser"${disabled("users")}>Prepare local invitation +</button></div><p class="workspace-warning">The "View as" switch only previews what each role can see — it isn't a real sign-in. A live deployment would use your organization's own accounts.</p><form class="work-form inline-form" id="newUser" data-work-form="user" hidden><h3>Prepare a demo invitation</h3><div class="work-form-grid"><label>Name<input name="name" class="work-input" required maxlength="65" placeholder="Priya Sen"></label><label>Email<input name="email" class="work-input" type="email" required maxlength="120" placeholder="priya@example.org"></label><label>Organization<input name="organization" class="work-input" required maxlength="75" placeholder="Training relief collective"></label><label>Role<select name="role" class="work-select">${roleOptions("viewer")}</select></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Create local invitation record</button><button type="button" class="work-btn" data-toggle-form="newUser">Cancel</button><p>No email is sent. Use fictional identities.</p></div></form><div class="table-scroll"><table class="work-table"><thead><tr><th>User</th><th>Organization</th><th>Role</th><th>Access status</th></tr></thead><tbody>${db.users.map((user) => `<tr><td>${esc(user.name)}<small>${esc(user.email)}</small></td><td>${esc(user.organization)}</td><td><select class="work-select" data-user-role="${esc(user.id)}" aria-label="Demo role for ${esc(user.name)}"${disabled("users")}>${roleOptions(user.role)}</select></td><td>${esc(user.status)}</td></tr>`).join("")}</tbody></table></div><details class="ws-collapse"><summary>What each role can do<i aria-hidden="true">+</i></summary><div class="table-scroll"><table class="role-matrix"><thead><tr><th>Action</th><th>Admin</th><th>Crisis manager</th><th>Resource coordinator</th><th>Viewer</th></tr></thead><tbody><tr><td>View incidents &amp; reports</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr><tr><td>Create &amp; update crises</td><td>Yes</td><td>Yes</td><td>—</td><td>—</td></tr><tr><td>Edit inventory &amp; maintenance</td><td>Yes</td><td>—</td><td>Yes</td><td>—</td></tr><tr><td>Assign available resources</td><td>Yes</td><td>Yes</td><td>Yes</td><td>—</td></tr><tr><td>Approve or override priorities</td><td>Yes</td><td>Yes</td><td>—</td><td>—</td></tr><tr><td>Manage users &amp; roles</td><td>Yes</td><td>—</td><td>—</td><td>—</td></tr></tbody></table></div></details><h3 class="section-title">Activity audit log</h3>${auditList(db.audit.slice(0,12))}`;
     }
 
     function channelOptions(chosen) {
@@ -1595,7 +1899,7 @@
 
     function decisionView() {
       const initial = resourceById("R-VENT") || db.resources[0];
-      return `<p class="demo-notice">This rule-based heuristic is not AI clinical triage. Severity and sample readiness weights are inspectable. Simulations never dispatch resources, predict lives saved, or modify actual inventory.</p><form class="work-form" data-work-form="simulation"><div class="scenario-controls"><label>Resource pool<select id="simulationPool" name="resourceId" class="work-select">${resourceOptions(initial.id)}</select></label><label>Scenario pool capacity<input name="capacity" id="simulationCapacity" type="number" min="0" max="1000000" step="1" value="${available(initial)}" required class="work-input"></label><label>Severity weight / <output id="severityWeightLabel">65%</output><input name="weight" id="severityWeight" type="range" min="20" max="90" step="5" value="65"></label><label>Cost per resource per day / INR<input name="cost" id="simulationCost" class="work-input" type="number" min="0" max="10000000" step="1" value="${initial.cost}" required></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Run scenario ↗</button><p>The remaining score weight uses sample response-time readiness.</p></div></form><div id="simulationResult" class="scenario-result">${ui.simulation ? simulationResult(ui.simulation) : '<p class="work-empty">Adjust a scenario and run it to see proposed allocations, uncovered demand, and an indicative cost comparison.</p>'}</div><h3 class="section-title">Saved scenario history</h3>${db.simulations.length ? `<ul class="decision-list">${db.simulations.slice(0,6).map((simulation) => `<li><small>${esc(when(simulation.at))} IST / ${esc(simulation.actor)}</small>${esc(simulation.resourceName)} / ${simulation.capacity} available / ${simulation.covered} proposed / ${simulation.demand-simulation.covered} uncovered / ${money(simulation.covered*simulation.cost)} indicative allocation cost</li>`).join("")}</ul>` : '<p class="work-empty">No simulations saved. Save a run to record the assumptions and result.</p>'}`;
+      return `<p class="demo-notice">Scenarios are a safe sandbox: nothing here moves real inventory or dispatches anyone. Adjust the numbers and see how an allocation would land.</p><form class="work-form" data-work-form="simulation"><div class="scenario-controls"><label>Resource pool<select id="simulationPool" name="resourceId" class="work-select">${resourceOptions(initial.id)}</select></label><label>Scenario pool capacity<input name="capacity" id="simulationCapacity" type="number" min="0" max="1000000" step="1" value="${available(initial)}" required class="work-input"></label><label>Severity weight / <output id="severityWeightLabel">65%</output><input name="weight" id="severityWeight" type="range" min="20" max="90" step="5" value="65"></label><label>Cost per resource per day / INR<input name="cost" id="simulationCost" class="work-input" type="number" min="0" max="10000000" step="1" value="${initial.cost}" required></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Run scenario ↗</button><p>The remaining score weight uses sample response-time readiness.</p></div></form><div id="simulationResult" class="scenario-result">${ui.simulation ? simulationResult(ui.simulation) : '<p class="work-empty">Adjust a scenario and run it to see proposed allocations, uncovered demand, and an indicative cost comparison.</p>'}</div><details class="ws-collapse"><summary>Saved scenarios<i aria-hidden="true">+</i></summary>${db.simulations.length ? `<ul class="decision-list">${db.simulations.slice(0,6).map((simulation) => `<li><small>${esc(when(simulation.at))} IST / ${esc(simulation.actor)}</small>${esc(simulation.resourceName)} / ${simulation.capacity} available / ${simulation.covered} proposed / ${simulation.demand-simulation.covered} uncovered / ${money(simulation.covered*simulation.cost)} indicative allocation cost</li>`).join("")}</ul>` : '<p class="work-empty">Nothing saved yet. Run a scenario and save it to keep the assumptions alongside the result.</p>'}</details>`;
     }
     function simulationResult(simulation) {
       const uncovered = Math.max(0,simulation.demand-simulation.covered);
@@ -1610,7 +1914,7 @@
       const focusedElement = document.activeElement, previousId = focusedElement?.id;
       const selectionStart = focusedElement?.selectionStart;
       const title = module ? module.label : "Overview";
-      const description = module ? module.description : "A quick look at current incidents, available resources, and recent decisions. Choose a tool below to get started.";
+      const description = module ? module.description : "Where things stand right now, and what needs a decision.";
       const position = moduleIds.indexOf(moduleId);
       const labelOf = (id) => id === "overview" ? "Overview" : featureModules.find((item) => item.id === id).label;
       const previous = position > 0 ? moduleIds[position - 1] : null;
@@ -2118,13 +2422,14 @@
       html.style.setProperty("--cw", `${Math.round(Math.max(72, R * scale))}px`);
       perspective = small ? 620 : mobile ? 760 : width <= 900 ? 920 : 1150;
       html.style.setProperty("--persp", `${perspective}px`);
-      vectors.forEach((v) => {
-        v.element.style.transform = `translate3d(${v.x * R}px,${-v.y * R}px,${v.z * R}px) rotateY(${v.lon}deg) rotateX(${v.lat}deg)`;
-      });
+      lastPlacedR = -1;
     }
 
     function syncIsolation() {
-      const modal = menuOpen || litOpen || panelOpen;
+      const modal = introActive || menuOpen || litOpen || panelOpen;
+      $("#experience").inert = introActive;
+      intro.inert = !introActive;
+      intro.setAttribute("aria-hidden",String(!introActive));
       $("#skipPlatform").inert = !revealed || modal;
       stage.inert = !revealed || gridOpen || modal;
       grid.inert = !gridOpen || modal;
@@ -2134,8 +2439,8 @@
       gridBtn.inert = !revealed || modal || (!deep && !gridOpen);
       $("#motionToggle").inert = !revealed || modal || gridOpen;
       $("header").inert = litOpen || panelOpen;
-      $(".platform-link").inert = modal;
       $(".cue").inert = !revealed || modal || deep || gridOpen;
+      const loginEl=$("#login"); if(loginEl){ loginEl.inert = !loginEl.classList.contains("is-open"); }
       menu.inert = !menuOpen;
       menu.setAttribute("aria-hidden", String(!menuOpen));
       lit.inert = !litOpen;
@@ -2145,7 +2450,7 @@
     }
 
     function syncLock(forceUnlock = false) {
-      const next = !forceUnlock && (!revealed || menuOpen || gridOpen || litOpen || panelOpen);
+      const next = !forceUnlock && (introActive || !revealed || menuOpen || gridOpen || litOpen || panelOpen);
       if (next && !locked) parkedScroll = window.scrollY;
       html.style.overflow = next ? "hidden" : "";
       body.style.overflow = next ? "hidden" : "";
@@ -2156,8 +2461,9 @@
     function renderFrame(now = performance.now()) {
       const elapsed = clamp(now-lastFrame,0,48);
       lastFrame = now;
-      if (revealed && state.autoRotate && !reduced.matches && !state.dragging && !pointer && !litOpen && !menuOpen && !panelOpen && !gridOpen && !document.hidden && now > spinResumeAt) state.spin = (state.spin + elapsed * .0055) % 360;
-      if (!state.dragging && !litOpen && !menuOpen && !panelOpen) {
+      if (introActive) introProgress.style.transform = `scaleX(${clamp((now-introStartedAt)/introDuration,0,1)})`;
+      if (revealed && state.autoRotate && !reduced.matches && !state.dragging && !pointer && !introActive && !litOpen && !menuOpen && !panelOpen && !gridOpen && !document.hidden && now > spinResumeAt) state.spin = (state.spin + elapsed * .0055) % 360;
+      if (!state.dragging && !introActive && !litOpen && !menuOpen && !panelOpen) {
         state.dragX += state.velX;
         state.dragY += state.velY;
         state.velX *= .94;
@@ -2173,6 +2479,21 @@
       state.camZ += (targetZ - state.camZ) * .075;
       const sx = state.tilt + state.dragY, sy = state.spin + state.dragX;
       world.style.transform = `translateZ(${state.camZ}px) rotateY(${sy}deg) rotateX(${sx}deg)`;
+      // The photographs gather into a tight ball, then drift out and keep breathing.
+      if (!sphereBorn && !introActive) sphereBorn = now;
+      let grown = 1, breathScale = 1;
+      if (!reduced.matches) {
+        grown = sphereBorn ? clamp((now - sphereBorn) / 3600, 0, 1) : 0;
+        const eased = 1 - Math.pow(1 - grown, 3);
+        const age = now - sphereBorn;
+        const pulse = state.autoRotate && age > 3600 ? Math.cos((age - 3600) * Math.PI * 2 / 14000) * .11 * eased : 0;
+        breathScale = .16 + .84 * eased + pulse;
+      }
+      const effR = R * breathScale;
+      stageGlow.style.setProperty("--orbit-size",`${Math.max(72,effR * 2)}px`);
+      const writeCards = !reduced.matches || Math.abs(effR - lastPlacedR) > .05;
+      const bobAmp = reduced.matches || !state.autoRotate ? 0 : 4.5 * grown;
+      if (writeCards) lastPlacedR = effR;
       // Counter-rotation cancels the world rotation; only .inner centers the title.
       headline.style.transform = `rotateX(${-sx}deg) rotateY(${-sy}deg) translateZ(${R * .62}px)`;
       headline.style.opacity = String(Math.max(0, 1 - p * (currentTheme === "light" ? .35 : .55)));
@@ -2181,11 +2502,15 @@
       const shade = 1 - Math.min(1, p * 1.6);
       const near = perspective * .66;
       vectors.forEach((v, index) => {
+        if (writeCards) {
+          const bob = bobAmp ? Math.sin(now * .0007 + index * 1.7) * bobAmp : 0;
+          v.element.style.transform = `translate3d(${v.x * effR}px,${-v.y * effR + bob}px,${v.z * effR}px) rotateY(${v.lon}deg) rotateX(${v.lat}deg)`;
+        }
         const zAfterPitch = -v.y * sinX + v.z * cosX;
         const zf = clamp(-v.x * sinY + zAfterPitch * cosY,-1,1);
         const base = .14 + .86 * Math.pow((zf + 1) / 2, .85);
         let dim = shade * (1 - base);
-        const absZ = zf * R + state.camZ;
+        const absZ = zf * effR + state.camZ;
         let fade = absZ > near ? Math.max(0, 1 - (absZ - near) / 190) : 1;
         if (litOpen) {
           dim = Math.min(1, dim + .78);
@@ -2317,6 +2642,7 @@
     }
 
     function setMenu(open, restoreFocus = true) {
+      if (open && introActive) finishIntro({ restoreFocus:false });
       cancelPointer();
       state.velX = state.velY = 0;
       menuOpen = open;
@@ -2426,6 +2752,7 @@
     }
 
     function openPanel(view) {
+      if (introActive) finishIntro({ restoreFocus:false });
       const workspace = moduleIds.includes(view);
       if (workspace) renderWorkspace(view);
       const selected = $(`[data-view="${workspace ? "platform" : view}"]`, panel);
@@ -2466,6 +2793,9 @@
 
     document.addEventListener("click", (event) => {
       const target = event.target;
+      if (target.closest("[data-intro-skip]")) { finishIntro(); return; }
+      if (target.closest("[data-intro-workspace]")) { finishIntro(); if (session) openWorkspace(); return; }
+      if (target.closest("[data-watch-intro]")) { startIntro(true); return; }
       if (target.closest("[data-theme-toggle]")) { event.preventDefault(); setTheme(currentTheme === "light" ? "dark" : "light"); return; }
       if (handleWorkspaceAction(event)) return;
       if (target === lit || target.closest("[data-close]")) { closeShot(); return; }
@@ -2473,7 +2803,9 @@
       const panelTrigger = target.closest("[data-panel]");
       if (panelTrigger) {
         event.preventDefault();
-        openPanel(panelTrigger.dataset.panel);
+        const view = panelTrigger.dataset.panel;
+        if (moduleIds.includes(view)) { if (session) openWorkspace(); else openLogin(); return; }
+        openPanel(view);
         return;
       }
       if (target.closest("[data-grid]")) { event.preventDefault(); setGrid(true); return; }
@@ -2496,6 +2828,13 @@
     $("#nextShot").addEventListener("click", () => navigateShot(1));
 
     document.addEventListener("keydown", (event) => {
+      if (introActive && event.key === "Escape") { event.preventDefault(); finishIntro(); return; }
+      if (introActive && event.key === "Tab") {
+        const buttons = $$("button",intro), first = buttons[0], last = buttons[buttons.length-1];
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === intro)) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || document.activeElement === intro)) { event.preventDefault(); first.focus(); }
+        return;
+      }
       if (event.key === "Escape" && body.classList.contains("ws-drawer-open")) {
         setDrawer(false);
         const toggleButton = $("[data-ws-drawer]");
@@ -2503,10 +2842,16 @@
         return;
       }
       if (event.key === "Escape") {
+        if (body.classList.contains("finder-open")) { setFinder(false); return; }
         if (litOpen) closeShot();
         else if (panelOpen) closePanel();
         else if (menuOpen) setMenu(false);
         else if (gridOpen) setGrid(false);
+        return;
+      }
+      if ((event.key === "k" || event.key === "K") && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setFinder(!body.classList.contains("finder-open"));
         return;
       }
       if (litOpen && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
@@ -2638,10 +2983,318 @@
       probe.onerror = settle;
       probe.src = shot.image;
     });
-    $("#avatar").src = shots[2].image;
+    $("#avatar").src = "https://images.pexels.com/photos/5964983/pexels-photo-5964983.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=120&w=120";
+
+    // ---- Role workspaces: one shared store, a focused desk per role ----
+    const STORE_KEY="resqsync-store-v2", SESSION_KEY="resqsync-session-v2";
+    const STATUS_ORDER=["opened","verified","assigned","enroute","resolved"];
+    const STATUS_LABEL={opened:"Opened",verified:"Verified",assigned:"Assigned",enroute:"En route",resolved:"Resolved"};
+    const ROLE_ICONS={seeker:'<path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.4h.01"/>',manager:'<path d="M13 2.5 4.5 13.5H12l-1 8 8.5-11H12l1-8Z"/>',coordinator:'<path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4v-9Z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/>',admin:'<path d="M12 3 20 6v5.5c0 4.4-3 7.8-8 9.5-5-1.7-8-5.1-8-9.5V6l8-3Z"/>',viewer:'<circle cx="12" cy="12" r="3.2"/><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>'};
+    const ROLES={
+      seeker:{label:"Help seeker",blurb:"Raise a help request and follow it from opened to resolved, like tracking a delivery.",tabs:["Raise a request","Track my requests"]},
+      manager:{label:"Crisis manager",blurb:"Verify incoming requests and assign the right resource to each one.",tabs:["Incoming requests","Incident board"]},
+      coordinator:{label:"Resource coordinator",blurb:"Hold the inventory, confirm dispatches, keep stock honest.",tabs:["Dispatch queue","Inventory"]},
+      admin:{label:"Admin",blurb:"Full oversight of every request, resource and decision in the network.",tabs:["Overview","Audit trail"]},
+    };
+    function seedStore(){
+      const t=(m)=>new Date(Date.now()-m*60000).toISOString();
+      return { seq:44,
+        resources:[
+          {id:"R1",name:"Swiftwater rescue boat",type:"Equipment",total:6,assigned:2},
+          {id:"R2",name:"ALS ambulance",type:"Equipment",total:8,assigned:5},
+          {id:"R3",name:"Relief kits",type:"Supplies",total:1200,assigned:260},
+          {id:"R4",name:"Medical oxygen cylinders",type:"Supplies",total:24,assigned:15},
+        ],
+        requests:[
+          {id:"RSQ-0041",name:"S. Iyer",address:"12 Marine Drive, Kochi",phone:"+91 98470 11223",brief:"Roof access needed, water rising fast around the house.",adults:3,children:2,photo:null,status:"enroute",createdAt:t(160),resource:"Swiftwater rescue boat",history:[{at:t(160),label:"Request opened"},{at:t(150),label:"Verified by crisis manager"},{at:t(142),label:"Boat assigned"},{at:t(131),label:"Dispatch confirmed"}]},
+          {id:"RSQ-0042",name:"A. Rahman",address:"Old City, Hyderabad",phone:"+91 90000 44556",brief:"Elderly patient needs an oxygen cylinder within the hour.",adults:2,children:0,photo:null,status:"assigned",createdAt:t(74),resource:"Medical oxygen cylinders",history:[{at:t(74),label:"Request opened"},{at:t(66),label:"Verified by crisis manager"},{at:t(58),label:"Oxygen assigned"}]},
+          {id:"RSQ-0043",name:"P. Das",address:"Riverside colony, Guwahati",phone:"+91 98640 77889",brief:"Family stranded on the first floor, need evacuation and dry rations.",adults:4,children:3,photo:null,status:"verified",createdAt:t(22),resource:null,history:[{at:t(22),label:"Request opened"},{at:t(14),label:"Verified by crisis manager"}]},
+        ],
+        audit:[{at:t(160),actor:"Help seeker",action:"Raised RSQ-0041"},{at:t(150),actor:"Crisis manager",action:"Verified RSQ-0041"},{at:t(142),actor:"Crisis manager",action:"Assigned Swiftwater rescue boat to RSQ-0041"},{at:t(131),actor:"Resource coordinator",action:"Confirmed dispatch for RSQ-0041"}],
+      };
+    }
+    let store;
+    try{ const raw=JSON.parse(localStorage.getItem(STORE_KEY)||"null"); store=(raw&&Array.isArray(raw.requests)&&Array.isArray(raw.resources))?raw:seedStore(); }catch{ store=seedStore(); }
+    function saveStore(){ try{ localStorage.setItem(STORE_KEY,JSON.stringify(store)); }catch{ /* session-only */ } }
+    let session=null;
+    try{ const savedSession=JSON.parse(localStorage.getItem(SESSION_KEY)||"null"); if(savedSession&&ROLES[savedSession.role]) session=savedSession; }catch{ session=null; }
+    function setSession(role){
+      session=role?{role}:null;
+      try{ session?localStorage.setItem(SESSION_KEY,JSON.stringify(session)):localStorage.removeItem(SESSION_KEY); }catch{ /* session-only */ }
+      syncAuthUI();
+    }
+    const authBtn=$("#authBtn");
+    function syncAuthUI(){
+      if(authBtn){ authBtn.textContent=session?ROLES[session.role].label:"Login"; authBtn.classList.toggle("is-authed",Boolean(session)); authBtn.title=session?"Signed in — select to sign out":"Sign in to a role workspace"; }
+      const menuAuth=$(".menu-secondary [data-auth]"); if(menuAuth) menuAuth.textContent=session?"Sign out":"Sign in";
+      const chip=$("#wsRoleChip"); if(chip) chip.textContent=session?ROLES[session.role].label:"";
+    }
+    function openLogin(){
+      if(introActive) finishIntro({restoreFocus:false});
+      const login=$("#login");
+      $("#roleGrid").innerHTML=Object.entries(ROLES).map(([key,role])=>`<button type="button" class="role-card" data-role="${key}"><span class="role-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ROLE_ICONS[key]}</svg></span><span class="role-card-text"><b>${esc(role.label)}</b><small>${esc(role.blurb)}</small></span><span class="role-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h8m0 0-3-3m3 3-3 3"/></svg></span></button>`).join("");
+      login.classList.add("is-open"); login.inert=false; login.setAttribute("aria-hidden","false");
+      body.classList.add("login-open");
+      requestAnimationFrame(()=>{ const first=$("#roleGrid .role-card"); if(first) first.focus(); });
+    }
+    function closeLogin(focusBack=true){
+      const login=$("#login"); if(!login.classList.contains("is-open")) return;
+      login.classList.remove("is-open"); login.inert=true; login.setAttribute("aria-hidden","true");
+      body.classList.remove("login-open");
+      if(focusBack&&authBtn) authBtn.focus({preventScroll:true});
+    }
+    function openWorkspace(){
+      if(!session){ openLogin(); return; }
+      openPanel("workspace");
+      renderRoleWorkspace();
+    }
+    function findRequest(id){ return store.requests.find((r)=>r.id===id); }
+    function pushStatus(req,label){ req.history.push({at:new Date().toISOString(),label}); }
+    function trackerHTML(req){
+      const idx=STATUS_ORDER.indexOf(req.status);
+      return `<div class="tracker"><ol>${STATUS_ORDER.map((s,i)=>{ const h=req.history[i]; return `<li class="${i<idx?"done":i===idx?"now":""}"><i>${i<idx?"✓":i+1}</i><span>${STATUS_LABEL[s]}</span>${h?`<small>${when(h.at)}</small>`:""}</li>`; }).join("")}</ol></div>`;
+    }
+    function requestCard(req,actions){
+      return `<article class="req-card st-${req.status}"><div class="req-card-top"><span class="req-id">${esc(req.id)} · ${when(req.createdAt)}</span><span class="req-status ${req.status}">${STATUS_LABEL[req.status]}</span></div>
+      <div class="req-meta"><span>${esc(req.name)}</span><span>${esc(req.address)}</span><span>${esc(req.phone)}</span><span>${req.adults} adults · ${req.children} children</span></div>
+      <p class="req-brief">${esc(req.brief)}</p>
+      ${req.photo?`<div class="photo-preview"><img src="${req.photo}" alt="Verification photo for ${esc(req.id)}"><small>Verification photo</small></div>`:""}
+      ${req.resource?`<div class="req-meta"><span>Assigned: <b>${esc(req.resource)}</b></span></div>`:""}
+      ${trackerHTML(req)}
+      ${actions||""}</article>`;
+    }
+    function resourceOptionsHTML(){ return store.resources.filter((r)=>r.assigned<r.total).map((r)=>`<option value="${esc(r.name)}">${esc(r.name)} (${r.total-r.assigned} free)</option>`).join(""); }
+    function renderRoleWorkspace(){
+      if(!session) return;
+      const role=ROLES[session.role];
+      $("[data-role-eyebrow]").textContent="ROLE WORKSPACE";
+      $("[data-role-title]").textContent=role.label;
+      $("[data-role-blurb]").textContent=role.blurb;
+      const roleIcon=$("#wsRoleIcon"); if(roleIcon) roleIcon.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ROLE_ICONS[session.role]}</svg>`;
+      syncAuthUI();
+      const tabs=$("#roleTabs");
+      if(tabs.dataset.role!==session.role){ tabs.dataset.role=session.role; tabs.dataset.tab="0"; }
+      tabs.innerHTML=role.tabs.map((t,i)=>`<button type="button" role="tab" aria-selected="${tabs.dataset.tab===String(i)}" class="${tabs.dataset.tab===String(i)?"is-active":""}" data-role-tab="${i}">${esc(t)}</button>`).join("");
+      const wrap=$("#roleWorkspace"); const tab=Number(tabs.dataset.tab||0);
+      if(session.role==="seeker"){
+        if(tab===0){
+          wrap.innerHTML=`<form class="work-form req-card" id="raiseForm">
+            <div class="work-form-grid">
+              <label>Your name<input class="work-input" name="name" required maxlength="60" placeholder="Full name"></label>
+              <label>Phone number<input class="work-input" name="phone" type="tel" required maxlength="20" placeholder="+91 …"></label>
+              <label class="full">Address<input class="work-input" name="address" required maxlength="120" placeholder="House, street, town, district"></label>
+              <label class="full">What help do you need?<textarea class="work-input" name="brief" required maxlength="240" rows="2" placeholder="Briefly describe the situation"></textarea></label>
+              <label>Adults (approx.)<input class="work-input" name="adults" type="number" min="0" max="500" value="1" required></label>
+              <label>Children (approx.)<input class="work-input" name="children" type="number" min="0" max="500" value="0" required></label>
+              <label class="full">Photo for verification<input class="work-input" id="raisePhoto" type="file" accept="image/*"></label>
+            </div>
+            <div class="photo-preview" id="photoPreview" hidden><img alt="Verification photo preview"><small>Attached for verification</small></div>
+            <div class="req-actions"><button class="work-btn primary" type="submit">Raise request</button><p style="color:var(--dim);font-size:11px">Your request reaches crisis managers immediately.</p></div>
+          </form>`;
+        } else {
+          wrap.innerHTML=store.requests.length?store.requests.map((r)=>requestCard(r)).join(""):'<p class="work-empty">No requests yet. Raise one from the first tab.</p>';
+        }
+      } else if(session.role==="manager"){
+        if(tab===0){
+          const open=store.requests.filter((r)=>r.status!=="resolved");
+          wrap.innerHTML=open.length?open.map((r)=>{
+            let actions="";
+            if(r.status==="opened") actions=`<div class="req-actions"><button class="work-btn primary" type="button" data-act="verify" data-id="${r.id}">Verify request</button></div>`;
+            else if(r.status==="verified") actions=`<div class="req-actions"><select class="work-select" name="resource" style="max-width:260px">${resourceOptionsHTML()}</select><button class="work-btn primary" type="button" data-act="assign" data-id="${r.id}">Assign resource</button></div>`;
+            else if(r.status==="enroute") actions=`<div class="req-actions"><button class="work-btn" type="button" data-act="resolve" data-id="${r.id}">Mark resolved</button></div>`;
+            else if(r.status==="assigned") actions=`<div class="req-actions"><p style="color:var(--dim);font-size:11px">Waiting for the coordinator to confirm dispatch.</p></div>`;
+            return requestCard(r,actions);
+          }).join(""):'<p class="work-empty">No open requests right now.</p>';
+        } else {
+          wrap.innerHTML=`<div class="overview-stats">${[[""+store.requests.filter((r)=>r.status!=="resolved").length,"Open requests"],[""+store.requests.filter((r)=>r.status==="enroute").length,"En route"],[""+store.resources.reduce((s,r)=>s+r.assigned,0),"Units committed"],[""+store.audit.length,"Decisions logged"]].map(([v,l])=>`<div class="overview-stat"><b>${v}</b><span>${l}</span></div>`).join("")}</div>`+store.requests.filter((r)=>r.status!=="resolved").map((r)=>requestCard(r)).join("");
+        }
+      } else if(session.role==="coordinator"){
+        if(tab===0){
+          const queue=store.requests.filter((r)=>r.status==="assigned");
+          wrap.innerHTML=queue.length?queue.map((r)=>requestCard(r,`<div class="req-actions"><button class="work-btn primary" type="button" data-act="dispatch" data-id="${r.id}">Confirm dispatch</button></div>`)).join(""):'<p class="work-empty">Nothing waiting for dispatch. Assigned requests appear here.</p>';
+        } else {
+          wrap.innerHTML=`<div class="table-scroll"><table class="work-table"><thead><tr><th>Resource</th><th>Type</th><th>Committed</th><th>Available</th></tr></thead><tbody>${store.resources.map((r)=>`<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.type)}</td><td>${r.assigned} / ${r.total}</td><td><div class="capacity-bar" style="min-width:90px"><i style="width:${Math.round(r.assigned/r.total*100)}%"></i></div></td></tr>`).join("")}</tbody></table></div>`;
+        }
+      } else if(session.role==="admin"){
+        if(tab===0){
+          wrap.innerHTML=`<div class="overview-stats">${[[""+store.requests.length,"Total requests"],[""+store.requests.filter((r)=>r.status!=="resolved").length,"Open"],[""+store.resources.reduce((s,r)=>s+(r.total-r.assigned),0),"Units free"],[""+store.audit.length,"Audit entries"]].map(([v,l])=>`<div class="overview-stat"><b>${v}</b><span>${l}</span></div>`).join("")}</div><h3 class="section-title">Latest decisions</h3><ul class="decision-list">${store.audit.slice(0,8).map((a)=>`<li><small>${when(a.at)} · ${esc(a.actor)}</small>${esc(a.action)}</li>`).join("")}</ul>`;
+        } else {
+          wrap.innerHTML=`<ul class="decision-list">${store.audit.map((a)=>`<li><small>${when(a.at)} · ${esc(a.actor)}</small>${esc(a.action)}</li>`).join("")}</ul>`;
+        }
+      }
+      $$("#roleWorkspace > *").forEach((el,i)=>{ el.style.animation=`riseIn .55s var(--ease) ${Math.min(i,8)*60}ms backwards`; });
+    }
+    let pendingPhoto=null;
+    $("#roleTabs").addEventListener("click",(e)=>{ const b=e.target.closest("[data-role-tab]"); if(!b) return; $("#roleTabs").dataset.tab=b.dataset.roleTab; renderRoleWorkspace(); });
+    $("#roleWorkspace").addEventListener("change",(e)=>{
+      if(e.target.id!=="raisePhoto") return;
+      const file=e.target.files&&e.target.files[0]; const prev=$("#photoPreview");
+      if(!file||!file.type.startsWith("image/")){ if(prev) prev.hidden=true; pendingPhoto=null; return; }
+      const reader=new FileReader();
+      reader.onload=()=>{ pendingPhoto=String(reader.result); const img=prev?prev.querySelector("img"):null; if(img) img.src=pendingPhoto; if(prev) prev.hidden=false; };
+      reader.readAsDataURL(file);
+    });
+    $("#roleWorkspace").addEventListener("submit",(e)=>{
+      if(e.target.id!=="raiseForm") return; e.preventDefault();
+      const f=e.target; const adults=Number(f.adults.value)||0, children=Number(f.children.value)||0;
+      const id="RSQ-"+String(store.seq++).padStart(4,"0");
+      const at=new Date().toISOString();
+      store.requests.unshift({id,name:f.name.value.trim(),address:f.address.value.trim(),phone:f.phone.value.trim(),brief:f.brief.value.trim(),adults,children,photo:pendingPhoto,status:"opened",createdAt:at,resource:null,history:[{at,label:"Request opened"}]});
+      store.audit.unshift({at,actor:"Help seeker",action:`Raised ${id}`});
+      pendingPhoto=null; saveStore();
+      $("#roleTabs").dataset.tab="1"; renderRoleWorkspace();
+      showToast(`${id} raised. Track it under "Track my requests".`);
+    });
+    $("#roleWorkspace").addEventListener("click",(e)=>{
+      const btn=e.target.closest("[data-act]"); if(!btn||!session) return;
+      const req=findRequest(btn.dataset.id); if(!req) return;
+      const act=btn.dataset.act; const now=new Date().toISOString(); const actor=ROLES[session.role].label;
+      if(act==="verify"&&req.status==="opened"){ req.status="verified"; pushStatus(req,"Verified by crisis manager"); store.audit.unshift({at:now,actor,action:`Verified ${req.id}`}); }
+      else if(act==="assign"&&req.status==="verified"){
+        const sel=btn.parentElement.querySelector("select[name=resource]"); const name=sel?sel.value:null;
+        const res=store.resources.find((r)=>r.name===name&&r.assigned<r.total);
+        if(!res){ showToast("No available capacity in that pool."); return; }
+        res.assigned+=1; req.resource=res.name; req.status="assigned"; pushStatus(req,`${res.name} assigned`); store.audit.unshift({at:now,actor,action:`Assigned ${res.name} to ${req.id}`});
+      }
+      else if(act==="dispatch"&&req.status==="assigned"){ req.status="enroute"; pushStatus(req,"Dispatch confirmed"); store.audit.unshift({at:now,actor,action:`Confirmed dispatch for ${req.id}`}); }
+      else if(act==="resolve"&&(req.status==="enroute"||req.status==="assigned")){
+        if(req.resource){ const res=store.resources.find((r)=>r.name===req.resource); if(res&&res.assigned>0) res.assigned-=1; }
+        req.status="resolved"; pushStatus(req,"Marked resolved"); store.audit.unshift({at:now,actor,action:`Resolved ${req.id}`});
+      } else return;
+      saveStore(); renderRoleWorkspace(); showToast(`${req.id} is now ${STATUS_LABEL[req.status]}.`);
+    });
+    document.addEventListener("click",(e)=>{
+      const roleCard=e.target.closest("[data-role]");
+      if(roleCard){ setSession(roleCard.dataset.role); closeLogin(false); openWorkspace(); return; }
+      if(e.target.closest("[data-login-close]")){ e.preventDefault(); closeLogin(); return; }
+      if(e.target.closest("[data-switch-role]")){ e.preventDefault(); closePanel(); openLogin(); return; }
+      if(e.target.closest("[data-auth]")){ e.preventDefault(); if(session){ setSession(null); closePanel(); showToast("Signed out."); } else openLogin(); return; }
+    });
+    document.addEventListener("keydown",(e)=>{ if(e.key==="Escape"&&body.classList.contains("login-open")) closeLogin(); });
+    syncAuthUI();
     window.__resqsyncReady = true;
     syncIsolation();
+    function scheduleIntroEnd(milliseconds,token = introGeneration) {
+      clearTimeout(introEndTimer);
+      introEndTimer = setTimeout(() => {
+        if (token === introGeneration && introActive) finishIntro();
+      },Math.max(0,milliseconds));
+    }
+    function startIntro(force = false) {
+      if (!force && reduced.matches) return;
+      clearTimeout(introEndTimer);
+      clearTimeout(introFallbackTimer);
+      clearTimeout(introHideTimer);
+      const token = ++introGeneration;
+      introReturn = menuOpen ? menuBtn : document.activeElement;
+      if (litOpen) closeShot(false);
+      if (panelOpen) closePanel();
+      if (gridOpen) setGrid(false,false);
+      if (menuOpen) setMenu(false,false);
+      cancelPointer();
+      state.velX = state.velY = 0;
+      introActive = true;
+      introStartedAt = performance.now();
+      introDuration = reduced.matches ? 2400 : 5200;
+      introProgress.style.transform = "scaleX(0)";
+      intro.hidden = false;
+      intro.classList.remove("is-closing","has-video");
+      intro.classList.add("is-open");
+      body.classList.add("intro-active");
+      syncIsolation();
+      syncLock();
+      scheduleIntroEnd(introDuration,token);
+      intro.focus({ preventScroll:true });
+      // The image and motion appear immediately; film loading is never a gate.
+      if (reduced.matches) return;
+      introFallbackTimer = setTimeout(() => {
+        if (token === introGeneration && introActive && !intro.classList.contains("has-video")) finishIntro();
+      },2400);
+      try {
+        film.muted = true;
+        film.defaultMuted = true;
+        film.playsInline = true;
+        film.setAttribute("webkit-playsinline","");
+        if (!film.getAttribute("src")) film.src = film.dataset.src;
+        else if (film.currentTime > .05) film.currentTime = 0;
+        film.playbackRate = 2;
+        const attempt = film.play();
+        if (attempt && typeof attempt.catch === "function") attempt.catch(() => {
+          if (token !== introGeneration || !introActive) return;
+          introDuration = 2400;
+          scheduleIntroEnd(Math.max(350,2400-(performance.now()-introStartedAt)),token);
+        });
+      } catch {
+        introDuration = 2400;
+        scheduleIntroEnd(Math.max(350,2400-(performance.now()-introStartedAt)),token);
+      }
+    }
+    function finishIntro({ workspace = false,restoreFocus = true } = {}) {
+      if (!introActive) return;
+      introActive = false;
+      const token = ++introGeneration;
+      clearTimeout(introEndTimer);
+      clearTimeout(introFallbackTimer);
+      clearTimeout(introHideTimer);
+      introProgress.style.transform = "scaleX(1)";
+      intro.classList.add("is-closing");
+      intro.classList.remove("is-open");
+      body.classList.remove("intro-active");
+      try { film.pause(); } catch { /* Media support does not affect access. */ }
+      syncIsolation();
+      syncLock();
+      introHideTimer = setTimeout(() => {
+        if (token !== introGeneration || introActive) return;
+        intro.hidden = true;
+        intro.classList.remove("is-closing","has-video");
+      },reduced.matches ? 160 : 550);
+      if (workspace) openPanel("overview");
+      else if (restoreFocus) {
+        const returnTo = introReturn && introReturn.isConnected && !introReturn.closest("[inert],[hidden]") && introReturn !== body ? introReturn : menuBtn;
+        returnTo.focus({ preventScroll:true });
+      }
+    }
+    film.addEventListener("play",() => { try { film.playbackRate = 2; } catch { /* Playback rate is optional. */ } });
+    film.addEventListener("playing",() => {
+      if (!introActive) { try { film.pause(); } catch { /* Optional playback. */ } return; }
+      intro.classList.add("has-video");
+      clearTimeout(introFallbackTimer);
+      const remaining = Number.isFinite(film.duration) ? (film.duration-film.currentTime)/2*1000 : 3500;
+      const age = performance.now()-introStartedAt;
+      const delay = Math.max(200,Math.min(Math.max(1600-age,remaining),5200-age));
+      introDuration = age + delay;
+      scheduleIntroEnd(delay);
+    });
+    film.addEventListener("ended",() => { if (introActive) finishIntro(); });
+    film.addEventListener("error",() => {
+      if (!introActive) return;
+      intro.classList.remove("has-video");
+      introDuration = 2400;
+      scheduleIntroEnd(Math.max(350,2400-(performance.now()-introStartedAt)));
+    });
+    document.addEventListener("visibilitychange",() => { if (document.hidden && introActive) finishIntro({ restoreFocus:false }); });
+    window.__resqsyncReplayIntro = () => startIntro(true);
+    window.__resqsyncSkipIntro = () => finishIntro();
+    if (!new URLSearchParams(window.location.search).has("skipIntro") && !window.location.hash) startIntro();
     window.addEventListener("pagehide",(event) => { if (!event.persisted) blobUrls.forEach((url) => URL.revokeObjectURL(url)); });
+  </script>
+</body>
+</html>
+=> { if (!event.persisted) blobUrls.forEach((url) => URL.revokeObjectURL(url)); });
+  </script>
+</body>
+</html>
+.max(350,2400-(performance.now()-introStartedAt)));
+    });
+    document.addEventListener("visibilitychange",() => { if (document.hidden && introActive) finishIntro({ restoreFocus:false }); });
+    window.__resqsyncReplayIntro = () => startIntro(true);
+    window.__resqsyncSkipIntro = () => finishIntro();
+    if (!new URLSearchParams(window.location.search).has("skipIntro") && !window.location.hash) startIntro();
+    window.addEventListener("pagehide",(event) => { if (!event.persisted) blobUrls.forEach((url) => URL.revokeObjectURL(url)); });
+  </script>
+</body>
+</html>
+=> { if (!event.persisted) blobUrls.forEach((url) => URL.revokeObjectURL(url)); });
   </script>
 </body>
 </html>

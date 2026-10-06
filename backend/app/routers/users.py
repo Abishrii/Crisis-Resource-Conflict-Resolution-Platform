@@ -4,7 +4,7 @@ from pwdlib import PasswordHash
 
 from app.database import SessionLocal
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserCreate, UserLogin, UserResponse
 
 
 router = APIRouter(
@@ -53,3 +53,32 @@ def register_user(
     db.refresh(new_user)
 
     return new_user
+
+
+@router.post("/login", response_model=UserResponse)
+def login_user(
+    credentials: UserLogin,
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(
+        User.email == credentials.email
+    ).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+
+    try:
+        valid = password_hash.verify(credentials.password, user.password)
+    except Exception:
+        valid = False
+
+    if not valid:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+
+    return user
