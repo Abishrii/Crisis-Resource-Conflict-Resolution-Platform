@@ -22,7 +22,7 @@ export default function App() {
       <div id="resqsync-app" dangerouslySetInnerHTML={{ __html: archiveMarkup }} />
       {startupError && (
         <div className="archive-error" role="alert">
-          The workspace could not initialize. Your saved demo data has not been changed.
+          The workspace could not initialize. Your data is stored on the server and has not been changed.
           <button type="button" onClick={() => window.location.reload()}>Reload workspace</button>
         </div>
       )}

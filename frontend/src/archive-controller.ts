@@ -6,6 +6,8 @@ export function initializeArchive() {
   const timers = new Set();
   const frames = new Set();
   let disposed = false;
+  const cleanupHooks = [];
+  const onDispose = (hook) => { cleanupHooks.push(hook); };
   const setTimeout = (callback, delay = 0) => {
     const id = window.setTimeout(() => { timers.delete(id); if (!disposed) callback(); }, delay);
     timers.add(id);
@@ -24,6 +26,7 @@ export function initializeArchive() {
   const dispose = () => {
     disposed = true;
     abort.abort();
+    cleanupHooks.forEach((hook) => { try { hook(); } catch {} });
     timers.forEach((id) => window.clearTimeout(id));
     frames.forEach((id) => window.cancelAnimationFrame(id));
     document.body.classList.remove('menu-open', 'gridview', 'lit', 'panelopen', 'dragging', 'deep', 'has-pointer', 'ws-drawer-open', 'intro-active', 'finder-open');
@@ -299,82 +302,23 @@ export function initializeArchive() {
     body.style.overflow = "";
 
     const featureModules = [
-      { id:"crises",name:"Crisis Management",label:"Crises",number:"01",description:"Keep track of what's happening, where, and how serious it is.",features:["Crisis event creation and tracking","Local instant status updates: active, escalating, resolved","Severity levels and incident categories","Timeline of events and actions","Geographic coordinates, plotted locations, and map links"] },
+      { id:"crises",name:"Crisis Management",label:"Crises",number:"01",description:"Keep track of what's happening, where, and how serious it is.",features:["Crisis event creation and tracking","Status updates saved for everyone: active, escalating, resolved","Severity levels and incident categories","Timeline of events and actions","Geographic coordinates, plotted locations, and map links"] },
       { id:"resources",name:"Resource Management",label:"Resources",number:"02",description:"See what you have, what's free, and what's already committed.",features:["Personnel, equipment, supplies, and facilities inventory","Availability and assigned-capacity tracking","Resource allocation to active crises","Capability profiles and specifications","Usage history and maintenance logs"] },
-      { id:"conflicts",name:"Conflict Resolution",label:"Allocations",number:"03",description:"When two incidents need the same thing, decide who gets it first.",features:["Automatic detection of competing resource requests","Transparent severity / response-time priority scoring","Manual override and approval workflows","Local stakeholder notification records","Negotiation, compromise, and decision history"] },
-      { id:"users",name:"Users & Roles",label:"People & access",number:"04",description:"Who's on the team, and what each person can do.",features:["Admin, crisis manager, resource coordinator, and viewer roles","Multi-organization and agency profiles","Role-based action gating in the demo","Authentication and server authorization requirements explained","Activity audit logs and local invitation previews"] },
-      { id:"collaboration",name:"Communication & Collaboration",label:"Messages & files",number:"05",description:"Updates, notes, and files, kept with the incident they belong to.",features:["Local messaging with updates across same-browser tabs","Email, SMS, and push preferences (delivery not connected)","Comment threads attached to crises and decisions","Document attachment metadata and session-local file downloads","Local in-app stakeholder notifications"] },
+      { id:"conflicts",name:"Conflict Resolution",label:"Allocations",number:"03",description:"When two incidents need the same thing, decide who gets it first.",features:["Automatic detection of competing resource requests","Transparent severity / response-time priority scoring","Manual override and approval workflows","Stakeholder notifications and decision records","Negotiation, compromise, and decision history"] },
+      { id:"users",name:"Users & Roles",label:"People & access",number:"04",description:"Who's on the team, and what each person can do.",features:["Admin, crisis manager, resource coordinator, and viewer roles","Multi-organization and agency profiles","Role-based permissions enforced by the server","Individual sign-in with e-mail and password","Activity audit logs and account administration"] },
+      { id:"collaboration",name:"Communication & Collaboration",label:"Messages & files",number:"05",description:"Updates, notes, and files, kept with the incident they belong to.",features:["Live messaging: new messages appear for everyone signed in","E-mail, SMS, and push preferences (e-mail needs SMTP configured)","Comment threads attached to crises and decisions","Document upload and download stored on the server","In-app stakeholder notifications"] },
       { id:"analytics",name:"Analytics & Reporting",label:"Reports",number:"06",description:"How resources are being used, and how quickly teams respond.",features:["Dashboard with calculated key metrics","Resource utilization reports by resource type","Response time analytics from sample records","Historical incident trends and date-range selection","Native PDF download and Excel-compatible XML export"] },
       { id:"decision",name:"Decision Support",label:"Scenario planning",number:"07",description:"Try an allocation on paper before you commit to it.",features:["Automated resource-allocation recommendation heuristic","Impact assessment through covered and uncovered demand","Scenario simulation with adjustable capacity and priority weights","Indicative INR cost and coverage analysis","Saved simulations with an audit trail"] },
     ];
     const moduleIds = ["overview",...featureModules.map((module) => module.id)];
-    const roleNames = { admin:"Admin","crisis-manager":"Crisis manager","resource-coordinator":"Resource coordinator",viewer:"Viewer" };
-    const actorNames = { admin:"Aditi Rao","crisis-manager":"Arjun Nair","resource-coordinator":"Meera Iyer",viewer:"Rohan Das" };
+    const roleNames = { admin:"Admin","crisis-manager":"Crisis manager","resource-coordinator":"Resource coordinator",viewer:"Viewer","help-seeker":"Help seeker" };
     const severityNames = { 1:"Low",2:"Moderate",3:"Elevated",4:"High",5:"Critical" };
-    const storageKey = "resqsync-india-workspace-v3";
-    const attachmentsInSession = new Map();
-    const ui = { module:"overview",role:"admin",crisisQuery:"",crisisFilter:"all",crisisTab:"list",selectedCrisis:"C-MUM",resourceQuery:"",resourceFilter:"all",selectedResource:null,communicationTab:"messages",channel:"network",analyticsDays:30,simulation:null,conflictResource:"R-VENT" };
-    let toastTimer = 0, demoStorageAvailable = true;
+    const ui = { module:"overview",role:"viewer",credential:null,crisisQuery:"",crisisFilter:"all",crisisTab:"list",selectedCrisis:"C-MUM",resourceQuery:"",resourceFilter:"all",selectedResource:null,communicationTab:"messages",channel:"network",analyticsDays:30,simulation:null,conflictResource:"R-VENT" };
+    let toastTimer = 0;
     const isoAgo = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
-    function seedWorkspace() {
-      const crisis = (id,title,city,region,lat,lng,category,severity,status,population,responseMinutes,age) => ({ id,title,city,region,lat,lng,category,severity,status,population,responseMinutes,createdAt:isoAgo(age),timeline:[{ at:isoAgo(age),text:"Training incident created. Fictional scenario, not a live alert.",actor:"Demo seed" }] });
-      const crisisData = [
-        crisis("C-MUM","Mumbai monsoon flooding","Mumbai","Maharashtra",19.076,72.8777,"Flood",5,"escalating",240,16,35),
-        crisis("C-DEL","Delhi hospital surge","New Delhi","Delhi",28.6139,77.209,"Medical",4,"active",85,21,100),
-        crisis("C-ASM","Assam river evacuation","Guwahati","Assam",26.1445,91.7362,"Flood",5,"active",360,19,170),
-        crisis("C-WAY","Wayanad slope instability","Wayanad","Kerala",11.605,76.083,"Landslide",4,"active",125,28,220),
-        crisis("C-CHE","Chennai coastal preparedness","Chennai","Tamil Nadu",13.0827,80.2707,"Storm",2,"active",180,24,310),
-        crisis("C-PUN","Pune warehouse fire drill","Pune","Maharashtra",18.5204,73.8567,"Fire",4,"resolved",45,12,4200),
-        crisis("C-DEH","Dehradun evacuation drill","Dehradun","Uttarakhand",30.3165,78.0322,"Landslide",3,"resolved",70,17,14400),
-      ];
-      crisisData[0].timeline.unshift({ at:isoAgo(12),text:"Status escalated after an illustrative access update.",actor:"Arjun Nair" });
-      crisisData.filter((item) => item.status === "resolved").forEach((item) => item.timeline.unshift({ at:isoAgo(item.id === "C-PUN" ? 3900 : 14000),text:"Training incident resolved.",actor:"Aditi Rao" }));
-      const resource = (id,name,type,total,unit,organization,capability,cost,allocations = [],maintenance = false) => ({ id,name,type,total,unit,organization,capability,cost,maintenance,allocations:allocations.map(([crisisId,quantity]) => ({ crisisId,quantity,at:isoAgo(20),actor:"Demo seed" })),history:[{ at:isoAgo(90),text:"Inventory and capability profile verified in the training dataset.",actor:"Demo seed" }],maintenanceLog:maintenance ? [{ at:isoAgo(60),text:"Scheduled inspection. Pool temporarily unavailable.",actor:"Meera Iyer" }] : [{ at:isoAgo(2880),text:"Training readiness check completed.",actor:"Meera Iyer" }] });
-      const resources = [
-        resource("R-TEAM","Swiftwater rescue teams","Personnel",4,"teams","Western Response Collective","Water rescue; 6 trained responders per team; 45-minute mobilization",18000,[["C-MUM",1]]),
-        resource("R-BOAT","Inflatable rescue boats","Equipment",6,"boats","Eastern Relief Network","8-person capacity; outboard motor; shallow-water access",6000,[["C-ASM",2]]),
-        resource("R-OXY","Medical oxygen reserve","Supplies",24,"cylinders","Regional Trauma Consortium","Approved handling required; illustrative 47-litre reserve units",1800,[["C-DEL",8],["C-WAY",6]]),
-        resource("R-AMB","ALS ambulance pool","Equipment",8,"vehicles","Regional Trauma Consortium","Advanced life support capability; staffed units in sample pool",12000,[["C-MUM",2],["C-DEL",2]]),
-        resource("R-KIT","Family relief kits","Supplies",1200,"kits","Eastern Relief Network","Water containers, hygiene supplies, and temporary shelter materials",850,[["C-ASM",200]]),
-        resource("R-MED","Trauma response teams","Personnel",5,"teams","Regional Trauma Consortium","4-person clinical response team; credentials illustrative only",22000,[["C-DEL",1]]),
-        resource("R-CAMP","District relief-camp capacity","Facilities",320,"places","Southern Response Collective","Sheltered accommodation; water and sanitation availability",450,[["C-ASM",100]]),
-        resource("R-GEN","Portable generator pool","Equipment",4,"units","Southern Response Collective","20 kVA; weather-protected; operator required",4500,[],true),
-        resource("R-VENT","Ventilator reserve","Equipment",10,"units","Regional Trauma Consortium","Illustrative transport-compatible units; clinical approval required",5500),
-        resource("R-COMM","Emergency communication kits","Equipment",6,"kits","Western Response Collective","Portable radio, battery reserve, and antenna package",2500,[["C-ASM",1]]),
-      ];
-      return { version:3,crises:crisisData,resources,requests:[
-        { id:"Q1",resourceId:"R-TEAM",crisisId:"C-MUM",quantity:3 },{ id:"Q2",resourceId:"R-TEAM",crisisId:"C-ASM",quantity:2 },
-        { id:"Q3",resourceId:"R-BOAT",crisisId:"C-ASM",quantity:4 },{ id:"Q4",resourceId:"R-BOAT",crisisId:"C-MUM",quantity:3 },
-        { id:"Q5",resourceId:"R-VENT",crisisId:"C-DEL",quantity:6 },{ id:"Q6",resourceId:"R-VENT",crisisId:"C-WAY",quantity:5 },{ id:"Q7",resourceId:"R-VENT",crisisId:"C-ASM",quantity:4 },
-        { id:"Q8",resourceId:"R-OXY",crisisId:"C-DEL",quantity:12 },{ id:"Q9",resourceId:"R-OXY",crisisId:"C-WAY",quantity:10 },
-      ],users:[
-        { id:"U1",name:"Aditi Rao",email:"aditi@example.org",organization:"Western Response Collective",role:"admin",status:"Active demo" },
-        { id:"U2",name:"Arjun Nair",email:"arjun@example.org",organization:"Southern Response Collective",role:"crisis-manager",status:"Active demo" },
-        { id:"U3",name:"Meera Iyer",email:"meera@example.org",organization:"Regional Trauma Consortium",role:"resource-coordinator",status:"Active demo" },
-        { id:"U4",name:"Rohan Das",email:"rohan@example.org",organization:"Eastern Relief Network",role:"viewer",status:"Active demo" },
-      ],messages:[
-        { id:"M1",channel:"network",author:"Arjun Nair",text:"Training update: all regions are visible in the shared picture. Please add resource gaps to the relevant incident thread.",at:isoAgo(30) },
-        { id:"M2",channel:"C-MUM",author:"Meera Iyer",text:"One swiftwater team is assigned. Three more teams have been requested in this fictional scenario.",at:isoAgo(18) },
-        { id:"M3",channel:"decisions",author:"Aditi Rao",text:"Clinical allocations need authorized approval. Keep the rationale with any override.",at:isoAgo(15) },
-      ],notifications:[{ id:"N1",text:"Four resource pools have competing requests in the training dataset.",at:isoAgo(5),read:false,channel:"In-app demo" }],attachments:[],decisions:[],negotiations:[],simulations:[],preferences:{ email:false,sms:false,push:false },audit:[{ id:"A1",at:isoAgo(35),actor:"Demo seed",action:"Workspace initialized",detail:"Fictional India response dataset loaded. No agency affiliation." }] };
-    }
-    function validWorkspace(candidate) {
-      const collections = ["crises","resources","requests","users","messages","notifications","attachments","decisions","negotiations","simulations","audit"];
-      if (!candidate || candidate.version !== 3 || !collections.every((key) => Array.isArray(candidate[key]) && candidate[key].every((entry) => entry && typeof entry === "object")) || !candidate.preferences || !candidate.crises.length || !candidate.resources.length) return false;
-      const crisesValid = candidate.crises.every((crisis) => crisis && typeof crisis.id === "string" && typeof crisis.title === "string" && typeof crisis.city === "string" && typeof crisis.region === "string" && Number.isFinite(crisis.lat) && Number.isFinite(crisis.lng) && integer(crisis.severity,1,5) !== null && ["active","escalating","resolved"].includes(crisis.status) && Array.isArray(crisis.timeline) && crisis.timeline.every((entry) => entry && typeof entry === "object") && typeof crisis.createdAt === "string");
-      if (!crisesValid) return false;
-      const resourcesValid = candidate.resources.every((resource) => resource && typeof resource.id === "string" && typeof resource.name === "string" && typeof resource.unit === "string" && integer(resource.total,1) !== null && Array.isArray(resource.allocations) && Array.isArray(resource.history) && resource.history.every((entry) => entry && typeof entry === "object") && Array.isArray(resource.maintenanceLog) && resource.maintenanceLog.every((entry) => entry && typeof entry === "object") && resource.allocations.every((allocation) => allocation && integer(allocation.quantity,1) !== null && candidate.crises.some((crisis) => crisis.id === allocation.crisisId)) && resource.allocations.reduce((sum,allocation) => sum+allocation.quantity,0) <= resource.total);
-      if (!resourcesValid) return false;
-      const requestsValid = candidate.requests.every((request) => request && integer(request.quantity) !== null && candidate.crises.some((crisis) => crisis.id === request.crisisId) && candidate.resources.some((resource) => resource.id === request.resourceId));
-      const usersValid = candidate.users.every((user) => roleNames[user.role] && typeof user.name === "string" && typeof user.email === "string" && typeof user.organization === "string");
-      const notesValid = candidate.negotiations.every((entry) => ["pending","resolved"].includes(entry.status) && typeof entry.proposal === "string");
-      return requestsValid && usersValid && notesValid;
-    }
-    let db;
-    try {
-      const stored = JSON.parse(localStorage.getItem(storageKey) || "null");
-      db = validWorkspace(stored) ? stored : seedWorkspace();
-    } catch { db = seedWorkspace(); demoStorageAvailable = false; }
+    // All records live on the ResQSync server; this object is only the last snapshot the server sent.
+    const emptyWorkspace = () => ({ loaded:false,revision:0,crises:[],resources:[],requests:[],users:[],messages:[],notifications:[],attachments:[],decisions:[],negotiations:[],simulations:[],audit:[],plans:{},preferences:{ email:false,sms:false,push:false },metrics:{ active:0,conflicts:0,utilization:0,response:0 },config:{},analytics:{},analyticsLoading:0,analyticsError:null,outbox:[],adminOutbox:[] });
+    let db = emptyWorkspace();
     const esc = (value) => String(value ?? "").replace(/[&<>"']/g,(character) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[character]));
     const uid = (prefix) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
     const fmt = (value) => new Intl.NumberFormat("en-IN").format(value);
@@ -391,7 +335,7 @@ export function initializeArchive() {
       const permissions = { crisis:["admin","crisis-manager"],resource:["admin","resource-coordinator"],allocate:["admin","crisis-manager","resource-coordinator"],approve:["admin","crisis-manager"],users:["admin"],message:["admin","crisis-manager","resource-coordinator"],save:["admin","crisis-manager","resource-coordinator"] };
       return (permissions[action] || []).includes(ui.role);
     };
-    const disabled = (action) => has(action) ? "" : ' disabled title="This action is not available to the current demo role"';
+    const disabled = (action) => has(action) ? "" : ' disabled title="Your role does not allow this action"';
     function showToast(text) {
       clearTimeout(toastTimer);
       const toast = $("#workToast");
@@ -401,22 +345,77 @@ export function initializeArchive() {
     }
     function requireRole(action) {
       if (has(action)) return true;
-      showToast("Your current demo role cannot make that change. Use the role preview to explore permissions.");
+      showToast("Your role cannot make that change.");
       return false;
     }
-    function record(action,detail) {
-      db.audit.unshift({ id:uid("A"),at:new Date().toISOString(),actor:actorNames[ui.role],action,detail });
-      db.audit = db.audit.slice(0,200);
+    // ---- Server connection ----
+    class ApiError extends Error { constructor(message,status) { super(message); this.status = status; } }
+    async function api(method,path,payload) {
+      const options = { method,credentials:"same-origin",headers:{ Accept:"application/json" } };
+      if (payload instanceof FormData) options.body = payload;
+      else if (payload !== undefined) { options.headers["Content-Type"] = "application/json"; options.body = JSON.stringify(payload); }
+      let response;
+      try { response = await fetch(`/api${path}`,options); }
+      catch { throw new ApiError("Cannot reach the ResQSync server. Check your connection and try again.",0); }
+      const authCall = /^\/auth\/(login|register|me)/.test(path);
+      if (response.status === 401 && !authCall) {
+        handleSessionLost();
+        const lost = new ApiError("Your session has ended. Sign in again.",401);
+        lost.handled = true;
+        throw lost;
+      }
+      if (!response.ok) {
+        let detail = `The request failed (${response.status}).`;
+        try { const data = await response.json(); if (data && data.detail) detail = typeof data.detail === "string" ? data.detail : "Some of the details are not valid."; } catch { /* keep the generic message */ }
+        throw new ApiError(detail,response.status);
+      }
+      return response;
     }
-    function notify(text) {
-      db.notifications.unshift({ id:uid("N"),text,at:new Date().toISOString(),read:false,channel:"In-app demo" });
-      db.notifications = db.notifications.slice(0,80);
+    const apiJson = async (method,path,payload) => (await api(method,path,payload)).json();
+    const enc = encodeURIComponent;
+    let knownRevision = 0;
+    async function loadMyOutbox() {
+      try {
+        const items = await apiJson("GET","/me/outbox");
+        db.outbox = Array.isArray(items) ? items : [];
+      } catch {
+        db.outbox = [];
+      }
     }
-    function saveDb() {
-      try { localStorage.setItem(storageKey,JSON.stringify(db)); }
-      catch { demoStorageAvailable = false; }
+    async function loadAdminOutbox() {
+      if (!has("users")) return;
+      try {
+        const items = await apiJson("GET","/outbox");
+        db.adminOutbox = Array.isArray(items) ? items : [];
+      } catch {
+        db.adminOutbox = [];
+      }
     }
-    function finishChange(text) { saveDb(); renderWorkspace(ui.module); showToast(text); }
+    async function loadWorkspace() {
+      const data = await apiJson("GET","/workspace");
+      data.loaded = true;
+      data.analytics = {};
+      data.analyticsLoading = 0;
+      data.analyticsError = null;
+      data.outbox = db.outbox || [];
+      data.adminOutbox = db.adminOutbox || [];
+      db = data;
+      knownRevision = Math.max(knownRevision,data.revision);
+      loadMyOutbox();
+      if (has("users")) loadAdminOutbox();
+    }
+    // Run a server change, then reload everything the signed-in role can see, then confirm to the person.
+    function mutate(request,success,before,resync = false) {
+      return request.then(async (result) => {
+        if (before) before(result);
+        await refreshAll();
+        showToast(typeof success === "function" ? success(result) : success);
+        return result;
+      }).catch((error) => {
+        if (!error.handled) { showToast(error.message || "That change could not be saved."); if (resync) refreshAll().catch(() => {}); }
+        return null;
+      });
+    }
     const selectedAttr = (a,b) => a === b ? " selected" : "";
     const statusLabel = (status) => `<span class="state-label ${esc(status)}">${esc(status.charAt(0).toUpperCase() + status.slice(1))}</span>`;
     const severityLabel = (severity) => `<span class="state-label ${severity >= 5 ? "critical" : severity >= 4 ? "high" : "moderate"}">${esc(severityNames[severity] || "Unspecified")}</span>`;
@@ -485,44 +484,116 @@ export function initializeArchive() {
       const assigned = db.resources.flatMap((resource) => resource.allocations.filter((allocation) => allocation.crisisId === item.id).map((allocation) => `${allocation.quantity} ${resource.unit} / ${resource.name}`));
       return `<section class="module-detail"><div class="detail-heading"><div><h3>${esc(item.title)}</h3><small>${esc(item.city)}, ${esc(item.region)} / ${item.lat.toFixed(3)}, ${item.lng.toFixed(3)}</small></div><button type="button" data-hide-crisis>Hide record ×</button></div><div class="details-grid"><div><p class="detail-note">${fmt(item.population)} people in the illustrative impact estimate. ${esc(item.category)} / ${esc(severityNames[item.severity])}. All sample records are fictional.</p><div class="detail-controls"><label class="overline" for="crisisStatus">Status</label><select class="work-select" id="crisisStatus" data-crisis-status="${esc(item.id)}"${disabled("crisis")}>${["active","escalating","resolved"].map((status) => `<option value="${status}"${selectedAttr(status,item.status)}>${status[0].toUpperCase()+status.slice(1)}</option>`).join("")}</select><a class="work-btn" href="https://www.openstreetmap.org/?mlat=${item.lat}&mlon=${item.lng}#map=11/${item.lat}/${item.lng}" target="_blank" rel="noopener noreferrer">View geographic map ↗</a></div><h4 class="section-title">Assigned resources</h4><p class="detail-note">${assigned.length ? assigned.map(esc).join("<br>") : "No resources assigned to this incident."}</p><button class="text-action" type="button" data-discuss="${esc(item.id)}">Open incident comments ↗</button></div><div><p class="overline" style="margin-bottom:12px">Events & actions / IST</p><ol class="timeline">${item.timeline.slice(0,8).map((event) => `<li><time>${esc(shortTime(event.at))}</time><span>${esc(event.text)}<br><span style="color:var(--dim)">${esc(event.actor)}</span></span></li>`).join("")}</ol></div></div></section>`;
     }
+    function initLeafletMap() {
+      const container = document.getElementById("realLeafletMap");
+      if (!container || typeof L === "undefined") return;
+      if (container._leaflet_map) {
+        container._leaflet_map.invalidateSize();
+        return;
+      }
+      try {
+        const map = L.map("realLeafletMap", { zoomControl:true }).setView([21.5, 78.9], 5);
+        container._leaflet_map = map;
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 18,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        const sevColors = { 1: "#10b981", 2: "#06b6d4", 3: "#f59e0b", 4: "#f97316", 5: "#ef4444" };
+        const visible = filteredCrises();
+        visible.forEach((c) => {
+          const color = sevColors[c.severity] || "#ef4444";
+          const marker = L.circleMarker([c.lat, c.lng], {
+            radius: 8 + (c.severity * 2),
+            fillColor: color,
+            color: "#ffffff",
+            weight: 2,
+            opacity: 0.95,
+            fillOpacity: 0.85
+          }).addTo(map);
+
+          const popupHtml = `<div style="color:#111;font-family:Inter,sans-serif;min-width:180px;line-height:1.4">
+            <strong style="font-size:13px;display:block;margin-bottom:2px">${esc(c.title)}</strong>
+            <span style="font-size:11px;color:#555">${esc(c.city)}, ${esc(c.region)}</span>
+            <div style="margin:6px 0;display:flex;gap:6px;align-items:center">
+              <span style="display:inline-block;padding:2px 6px;border-radius:3px;background:${color};color:#fff;font-size:10px;font-weight:bold">Severity ${c.severity} · ${esc(severityNames[c.severity])}</span>
+              <span style="font-size:10px;text-transform:uppercase;font-weight:600;color:#444">${esc(c.status)}</span>
+            </div>
+            <div style="font-size:11px;margin-bottom:8px">Estimated impacted: <b>${fmt(c.population)}</b></div>
+            <button type="button" class="work-btn primary" style="padding:4px 8px;font-size:11px;cursor:pointer;width:100%" data-map-open-crisis="${esc(c.id)}">Open incident record &rarr;</button>
+          </div>`;
+          marker.bindPopup(popupHtml);
+        });
+
+        const stagingDepots = [
+          { name: "Western Staging Depot", city: "Mumbai", lat: 19.076, lng: 72.8777, org: "Western Response Collective" },
+          { name: "Eastern Staging Depot", city: "Guwahati", lat: 26.1445, lng: 91.7362, org: "Eastern Relief Network" },
+          { name: "Southern Staging Hub", city: "Bengaluru", lat: 12.9716, lng: 77.5946, org: "Southern Response Collective" },
+          { name: "Northern Trauma Base", city: "New Delhi", lat: 28.6139, lng: 77.2090, org: "Regional Trauma Consortium" }
+        ];
+        stagingDepots.forEach((s) => {
+          const depotMarker = L.circleMarker([s.lat, s.lng], {
+            radius: 8,
+            fillColor: "#8b5cf6",
+            color: "#ffffff",
+            weight: 2,
+            opacity: 0.95,
+            fillOpacity: 0.9
+          }).addTo(map);
+          const pools = db.resources.filter((r) => r.organization === s.org);
+          const depotHtml = `<div style="color:#111;font-family:Inter,sans-serif;min-width:180px;line-height:1.4">
+            <strong style="font-size:12px;color:#6d28d9;display:block">⬡ ${esc(s.name)}</strong>
+            <span style="font-size:11px;color:#555">${esc(s.org)} · ${esc(s.city)}</span>
+            <div style="margin:6px 0;font-size:11px;border-top:1px solid #e5e7eb;padding-top:4px">
+              <b>${pools.length}</b> resource inventory pools:<br>
+              <div style="margin-top:2px;font-size:10px;color:#374151">${pools.map((r) => `• ${esc(r.name)}: <b>${available(r)}</b> ${esc(r.unit)} available`).join("<br>")}</div>
+            </div>
+          </div>`;
+          depotMarker.bindPopup(depotHtml);
+        });
+
+        setTimeout(() => map.invalidateSize(), 150);
+      } catch (err) {
+        console.error("Leaflet initialization error:", err);
+      }
+    }
     function crisisMap() {
       const visible = filteredCrises();
-      const pins = visible.map((item) => `<button type="button" class="map-pin ${item.status}${ui.selectedCrisis === item.id ? " selected" : ""}" style="left:${clamp((item.lng-67)/31*100,4,96)}%;top:${clamp((37-item.lat)/31*100,8,92)}%" data-crisis-detail="${esc(item.id)}" aria-label="${esc(item.title)} in ${esc(item.city)}">${String(db.crises.indexOf(item)+1).padStart(2,"0")}</button>`).join("");
-      return `<div class="geo-map" aria-label="Schematic geographic positions of Indian training incidents">
-        <svg viewBox="0 0 600 360" preserveAspectRatio="none" aria-hidden="true"><defs><pattern id="geoGrid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0v40" fill="none" stroke="#52634c" stroke-opacity=".22" stroke-width="1"/></pattern></defs><rect width="600" height="360" fill="url(#geoGrid)"/><path d="M40 292C90 195 135 182 186 95S283 24 386 56 460 109 566 153M70 331C170 222 269 230 351 157S434 107 598 140" fill="none" stroke="#32492f" stroke-width="1"/><text x="20" y="30" fill="#91a28b" font-family="Inter, sans-serif" font-size="9" letter-spacing="2">INDIA / DEMO FOOTPRINT</text><text x="20" y="341" fill="#687762" font-family="Inter, sans-serif" font-size="8">6°N — 37°N / 67°E — 98°E</text></svg>${pins}
-      </div><p class="map-footnote">${visible.length} matching incidents. Positions are plotted from demo coordinates. This schematic has no political boundaries and is not a navigation map. Open an incident for its geographic map link.</p>`;
+      return `<div class="geo-map-wrapper" style="margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div><span class="overline" style="margin:0">Interactive Geographic Response Map</span><br><small style="color:var(--dim)">Leaflet / OpenStreetMap · ${visible.length} plotted incidents &amp; staging depots</small></div>
+          <div style="display:flex;gap:10px;font-size:11px;align-items:center;flex-wrap:wrap">
+            <span style="display:flex;align-items:center;gap:4px"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ef4444"></i> Sev 5</span>
+            <span style="display:flex;align-items:center;gap:4px"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f97316"></i> Sev 4</span>
+            <span style="display:flex;align-items:center;gap:4px"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f59e0b"></i> Sev 3</span>
+            <span style="display:flex;align-items:center;gap:4px"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#06b6d4"></i> Sev 2</span>
+            <span style="display:flex;align-items:center;gap:4px"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981"></i> Sev 1</span>
+            <span style="display:flex;align-items:center;gap:4px"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#8b5cf6"></i> Depot</span>
+          </div>
+        </div>
+        <div id="realLeafletMap" style="height:420px;width:100%;border-radius:var(--ws-radius,8px);position:relative;z-index:1;background:var(--chart-bg);border:1px solid var(--line-soft)"></div>
+        <p class="map-footnote" style="margin-top:8px">${visible.length} matching incidents. Click any incident or depot marker to inspect details and open records.</p>
+      </div>`;
     }
     function crisesView() {
-      return `<div class="workspace-tools"><div><input class="work-input search-field" id="crisisSearch" type="search" placeholder="Search incidents or locations" value="${esc(ui.crisisQuery)}" aria-label="Search incidents"><select class="work-select" id="crisisFilter" aria-label="Filter incident status">${["all","active","escalating","resolved"].map((status) => `<option value="${status}"${selectedAttr(status,ui.crisisFilter)}>${status === "all" ? "All statuses" : status[0].toUpperCase()+status.slice(1)}</option>`).join("")}</select></div><button type="button" class="work-btn primary" data-toggle-form="newCrisis"${disabled("crisis")}>Create crisis +</button></div><form class="work-form inline-form" id="newCrisis" data-work-form="crisis" hidden><h3>Create a training incident</h3><div class="work-form-grid"><label class="full">Crisis name<input class="work-input" name="title" required maxlength="90" placeholder="District flood-response exercise"></label><label>City / district<input class="work-input" name="city" required maxlength="60" placeholder="Mumbai"></label><label>State / region<input class="work-input" name="region" required maxlength="60" placeholder="Maharashtra"></label><label>Category<select class="work-select" name="category">${["Flood","Fire","Medical","Landslide","Storm","Earthquake","Other"].map((category) => `<option>${category}</option>`).join("")}</select></label><label>Severity<select class="work-select" name="severity">${[5,4,3,2,1].map((severity) => `<option value="${severity}">${severityNames[severity]}</option>`).join("")}</select></label><label>Latitude<input class="work-input" name="lat" type="number" min="6" max="37" step=".0001" required value="19.076"></label><label>Longitude<input class="work-input" name="lng" type="number" min="67" max="98" step=".0001" required value="72.8777"></label><label>Estimated people affected<input class="work-input" name="population" type="number" min="0" max="1000000" step="1" value="0" required></label><label>Initial status<select class="work-select" name="status"><option value="active">Active</option><option value="escalating">Escalating</option></select></label></div><div class="form-actions"><button class="work-btn primary" type="submit">Create training incident</button><button class="work-btn" type="button" data-toggle-form="newCrisis">Cancel</button><p>Use fictional information only.</p></div></form><div class="work-tabs" aria-label="Crisis display"><button type="button" data-crisis-tab="list" class="${ui.crisisTab === "list" ? "is-active" : ""}" aria-pressed="${ui.crisisTab === "list"}">Incident list</button><button type="button" data-crisis-tab="map" class="${ui.crisisTab === "map" ? "is-active" : ""}" aria-pressed="${ui.crisisTab === "map"}">Geographic view</button></div>${ui.crisisTab === "map" ? crisisMap() : `<div class="table-scroll"><table class="work-table"><thead><tr><th>Incident</th><th>Location</th><th>Severity</th><th>Status</th><th>Record</th></tr></thead><tbody id="crisisRows">${crisisRows()}</tbody></table></div>`}${crisisDetail(crisisById(ui.selectedCrisis))}`;
+      return `<div class="workspace-tools"><div><input class="work-input search-field" id="crisisSearch" type="search" placeholder="Search incidents or locations" value="${esc(ui.crisisQuery)}" aria-label="Search incidents"><select class="work-select" id="crisisFilter" aria-label="Filter incident status">${["all","active","escalating","resolved"].map((status) => `<option value="${status}"${selectedAttr(status,ui.crisisFilter)}>${status === "all" ? "All statuses" : status[0].toUpperCase()+status.slice(1)}</option>`).join("")}</select></div><div style="display:flex;gap:8px"><a class="work-btn" href="/api/exports/crises.csv" download="crises.csv" style="text-decoration:none">Export CSV ↗</a><button type="button" class="work-btn primary" data-toggle-form="newCrisis"${disabled("crisis")}>Create crisis +</button></div></div><form class="work-form inline-form" id="newCrisis" data-work-form="crisis" hidden><h3>Create a training incident</h3><div class="work-form-grid"><label class="full">Crisis name<input class="work-input" name="title" required maxlength="90" placeholder="District flood-response exercise"></label><label>City / district<input class="work-input" name="city" required maxlength="60" placeholder="Mumbai"></label><label>State / region<input class="work-input" name="region" required maxlength="60" placeholder="Maharashtra"></label><label>Category<select class="work-select" name="category">${["Flood","Fire","Medical","Landslide","Storm","Earthquake","Other"].map((category) => `<option>${category}</option>`).join("")}</select></label><label>Severity<select class="work-select" name="severity">${[5,4,3,2,1].map((severity) => `<option value="${severity}">${severityNames[severity]}</option>`).join("")}</select></label><label>Latitude<input class="work-input" name="lat" type="number" min="6" max="37" step=".0001" required value="19.076"></label><label>Longitude<input class="work-input" name="lng" type="number" min="67" max="98" step=".0001" required value="72.8777"></label><label>Estimated people affected<input class="work-input" name="population" type="number" min="0" max="1000000" step="1" value="0" required></label><label>Initial status<select class="work-select" name="status"><option value="active">Active</option><option value="escalating">Escalating</option></select></label></div><div class="form-actions"><button class="work-btn primary" type="submit">Create training incident</button><button class="work-btn" type="button" data-toggle-form="newCrisis">Cancel</button><p>Use fictional information only.</p></div></form><div class="work-tabs" aria-label="Crisis display"><button type="button" data-crisis-tab="list" class="${ui.crisisTab === "list" ? "is-active" : ""}" aria-pressed="${ui.crisisTab === "list"}">Incident list</button><button type="button" data-crisis-tab="map" class="${ui.crisisTab === "map" ? "is-active" : ""}" aria-pressed="${ui.crisisTab === "map"}">Geographic view</button></div>${ui.crisisTab === "map" ? crisisMap() : `<div class="table-scroll"><table class="work-table"><thead><tr><th>Incident</th><th>Location</th><th>Severity</th><th>Status</th><th>Record</th></tr></thead><tbody id="crisisRows">${crisisRows()}</tbody></table></div>`}${crisisDetail(crisisById(ui.selectedCrisis))}`;
     }
 
     function resourceRows() {
       const rows = db.resources.filter((resource) => (ui.resourceFilter === "all" || resource.type === ui.resourceFilter) && `${resource.name} ${resource.organization} ${resource.capability}`.toLowerCase().includes(ui.resourceQuery.toLowerCase()));
-      return rows.length ? rows.map((resource) => `<tr><td><button type="button" class="row-link" data-resource-detail="${esc(resource.id)}">${esc(resource.name)}</button><small>${esc(resource.type)} / ${esc(resource.organization)}</small></td><td>${fmt(resource.total)}<small>${esc(resource.unit)}</small></td><td>${resource.maintenance ? statusLabel("maintenance") : `${fmt(available(resource))}<small>${used(resource)} assigned</small>`}</td><td><div class="capacity-bar" style="min-width:65px"><i style="width:${resource.maintenance ? 0 : Math.min(100,used(resource)/resource.total*100)}%"></i></div><small>${resource.maintenance ? "Out of service" : `${Math.round(used(resource)/resource.total*100)}% utilized`}</small></td><td><button type="button" class="work-btn" data-resource-detail="${esc(resource.id)}">Profile ↗</button></td></tr>`).join("") : '<tr><td colspan="5" class="work-empty">No matching resources.</td></tr>';
+      return rows.length ? rows.map((resource) => `<tr><td><button type="button" class="row-link" data-resource-detail="${esc(resource.id)}">${esc(resource.name)}</button><small>${esc(resource.type)} / ${esc(resource.organization)}</small></td><td>${fmt(resource.total)}<small>${esc(resource.unit)}</small></td><td>${resource.maintenance ? statusLabel("maintenance") : `${fmt(available(resource))}${resource.lowStock ? ' <span class="state-label critical" style="font-size:10px">Low stock</span>' : ''}<small>${used(resource)} assigned</small>`}</td><td><div class="capacity-bar" style="min-width:65px"><i style="width:${resource.maintenance ? 0 : Math.min(100,used(resource)/resource.total*100)}%"></i></div><small>${resource.maintenance ? "Out of service" : `${Math.round(used(resource)/resource.total*100)}% utilized`}</small></td><td><button type="button" class="work-btn" data-resource-detail="${esc(resource.id)}">Profile ↗</button></td></tr>`).join("") : '<tr><td colspan="5" class="work-empty">No matching resources.</td></tr>';
     }
     function resourceDetail(resource) {
       if (!resource) return "";
-      return `<section class="module-detail"><div class="detail-heading"><div><h3>${esc(resource.name)}</h3><small>${esc(resource.id)} / ${esc(resource.type)} / ${esc(resource.organization)}</small></div><button type="button" data-hide-resource>Hide profile ×</button></div><div class="details-grid"><div><p class="detail-note">${esc(resource.capability)}</p><p class="detail-note" style="margin-top:10px">Indicative daily cost per ${esc(resource.unit)}: ${money(resource.cost)}. Fictional costing only.</p><div class="detail-controls"><button type="button" class="work-btn" data-maintenance="${esc(resource.id)}"${disabled("resource")}>${resource.maintenance ? "Return to available" : "Mark for maintenance"}</button></div><h4 class="section-title">Current assignments</h4><ul class="decision-list">${resource.allocations.length ? resource.allocations.map((allocation) => `<li><small>${esc(when(allocation.at))} IST</small>${fmt(allocation.quantity)} ${esc(resource.unit)} / ${esc(crisisById(allocation.crisisId)?.title || "Unknown incident")}<br><button class="text-action" type="button" data-release="${esc(resource.id)}" data-release-crisis="${esc(allocation.crisisId)}"${disabled("allocate")}>Release assignment ↗</button></li>`).join("") : '<li>No active assignments.</li>'}</ul></div><div><p class="overline" style="margin-bottom:10px">Usage history</p><ol class="timeline">${resource.history.slice(0,5).map((event) => `<li><time>${esc(shortTime(event.at))}</time><span>${esc(event.text)}<br><span style="color:var(--dim)">${esc(event.actor)}</span></span></li>`).join("")}</ol><p class="overline" style="margin:22px 0 10px">Maintenance log</p><ol class="timeline">${resource.maintenanceLog.slice(0,4).map((event) => `<li><time>${esc(shortTime(event.at))}</time><span>${esc(event.text)}</span></li>`).join("")}</ol></div></div></section>`;
+      const lowStockBanner = resource.lowStock ? `<div style="background:rgba(239,68,68,0.18);border:1px solid #ef4444;border-radius:4px;padding:6px 10px;margin-bottom:12px;font-size:12px;color:#fca5a5">⚠️ <b>Low-stock alert:</b> Only ${fmt(available(resource))} ${esc(resource.unit)} remaining in this inventory pool.</div>` : "";
+      return `<section class="module-detail"><div class="detail-heading"><div><h3>${esc(resource.name)}</h3><small>${esc(resource.id)} / ${esc(resource.type)} / ${esc(resource.organization)}</small></div><button type="button" data-hide-resource>Hide profile ×</button></div>${lowStockBanner}<div class="details-grid"><div><p class="detail-note">${esc(resource.capability)}</p><p class="detail-note" style="margin-top:10px">Indicative daily cost per ${esc(resource.unit)}: ${money(resource.cost)}.</p><div class="detail-controls"><button type="button" class="work-btn" data-maintenance="${esc(resource.id)}"${disabled("resource")}>${resource.maintenance ? "Return to available" : "Mark for maintenance"}</button></div><form class="work-form" data-work-form="patchResource" data-resource-id="${esc(resource.id)}" style="margin-top:12px"><div style="display:flex;gap:8px;align-items:flex-end"><label style="flex:1">Total capacity (${esc(resource.unit)})<input name="total" type="number" class="work-input" min="${resource.used}" max="1000000" value="${resource.total}" required></label><button type="submit" class="work-btn"${disabled("resource")}>Update capacity</button></div></form><details class="ws-collapse" style="margin-top:10px"><summary>Record stock movement (In / Out)<i aria-hidden="true">+</i></summary><form class="work-form" data-work-form="stockMovement" data-resource-id="${esc(resource.id)}" style="margin-top:8px"><div class="work-form-grid"><label>Movement type<select name="movementType" class="work-select"><option value="stock_in">Stock-in (Add units)</option><option value="stock_out">Stock-out (Deduct units)</option></select></label><label>Quantity<input name="quantity" type="number" class="work-input" min="1" max="1000000" value="1" required></label><label class="full">Reason / Reference<input name="reason" class="work-input" required maxlength="250" placeholder="e.g. Warehouse receipt or district transfer"></label></div><div class="form-actions"><button type="submit" class="work-btn primary"${disabled("resource")}>Save movement</button></div></form></details><h4 class="section-title">Current assignments</h4><ul class="decision-list">${resource.allocations.length ? resource.allocations.map((allocation) => `<li><small>${esc(when(allocation.at))} IST</small>${fmt(allocation.quantity)} ${esc(resource.unit)} / ${allocation.requestId ? `Help request ${esc(allocation.requestId)}` : esc(crisisById(allocation.crisisId)?.title || "Unknown incident")}<br>${allocation.requestId ? '<span class="module-count">Released when the request is resolved</span>' : `<button class="text-action" type="button" data-release="${esc(resource.id)}" data-release-crisis="${esc(allocation.crisisId)}"${disabled("allocate")}>Release assignment ↗</button>`}</li>`).join("") : '<li>No active assignments.</li>'}</ul></div><div><p class="overline" style="margin-bottom:10px">Usage history</p><ol class="timeline">${resource.history.slice(0,6).map((event) => `<li><time>${esc(shortTime(event.at))}</time><span>${esc(event.text)}<br><span style="color:var(--dim)">${esc(event.actor)}</span></span></li>`).join("")}</ol><p class="overline" style="margin:22px 0 10px">Maintenance log</p><ol class="timeline">${resource.maintenanceLog.slice(0,4).map((event) => `<li><time>${esc(shortTime(event.at))}</time><span>${esc(event.text)}</span></li>`).join("")}</ol></div></div></section>`;
     }
     function resourcesView() {
-      return `<div class="workspace-tools"><div><input class="work-input search-field" id="resourceSearch" type="search" placeholder="Search resource inventory" value="${esc(ui.resourceQuery)}" aria-label="Search inventory"><select class="work-select" id="resourceFilter" aria-label="Filter resource type"><option value="all">All resource types</option>${["Personnel","Equipment","Supplies","Facilities"].map((type) => `<option${selectedAttr(type,ui.resourceFilter)}>${type}</option>`).join("")}</select></div><div><button type="button" class="work-btn" data-toggle-form="assignResource"${disabled("allocate")}>Assign resources ↗</button><button type="button" class="work-btn primary" data-toggle-form="newResource"${disabled("resource")}>Add resource +</button></div></div><form class="work-form inline-form" id="newResource" data-work-form="resource" hidden><h3>Add an inventory pool</h3><div class="work-form-grid"><label>Resource name<input class="work-input" name="name" required maxlength="80" placeholder="District rescue vehicles"></label><label>Type<select class="work-select" name="type">${["Personnel","Equipment","Supplies","Facilities"].map((type) => `<option>${type}</option>`).join("")}</select></label><label>Total capacity<input class="work-input" name="total" type="number" min="1" max="1000000" step="1" required value="5"></label><label>Unit name<input class="work-input" name="unit" required maxlength="30" placeholder="vehicles"></label><label>Organization<input class="work-input" name="organization" required maxlength="70" placeholder="Training response collective"></label><label>Daily unit cost / INR<input class="work-input" name="cost" type="number" min="0" max="10000000" step="1" required value="1000"></label><label class="full">Capabilities and specifications<textarea class="work-input" name="capability" required maxlength="350" rows="2" placeholder="Capacity, qualifications, operating constraints, readiness..."></textarea></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Add inventory pool</button><button type="button" class="work-btn" data-toggle-form="newResource">Cancel</button></div></form><form class="work-form inline-form" id="assignResource" data-work-form="assign" hidden><h3>Assign available capacity</h3><div class="work-form-grid"><label>Resource<select name="resourceId" class="work-select" required>${resourceOptions()}</select></label><label>Active crisis<select name="crisisId" class="work-select" required>${crisisOptions()}</select></label><label>Quantity<input name="quantity" class="work-input" type="number" min="1" max="1000000" value="1" step="1" required></label><label>Assignment rationale<input name="reason" class="work-input" required maxlength="220" placeholder="Agreed operational need"></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Confirm demo assignment</button><button type="button" class="work-btn" data-toggle-form="assignResource">Cancel</button></div></form><div class="table-scroll"><table class="work-table"><thead><tr><th>Resource / organization</th><th>Capacity</th><th>Available</th><th>Utilization</th><th>Details</th></tr></thead><tbody id="resourceRows">${resourceRows()}</tbody></table></div>${resourceDetail(resourceById(ui.selectedResource))}`;
+      return `<div class="workspace-tools"><div><input class="work-input search-field" id="resourceSearch" type="search" placeholder="Search resource inventory" value="${esc(ui.resourceQuery)}" aria-label="Search inventory"><select class="work-select" id="resourceFilter" aria-label="Filter resource type"><option value="all">All resource types</option>${["Personnel","Equipment","Supplies","Facilities"].map((type) => `<option${selectedAttr(type,ui.resourceFilter)}>${type}</option>`).join("")}</select></div><div style="display:flex;gap:8px"><a class="work-btn" href="/api/exports/resources.csv" download="resources.csv" style="text-decoration:none">Export CSV ↗</a><button type="button" class="work-btn" data-toggle-form="assignResource"${disabled("allocate")}>Assign resources ↗</button><button type="button" class="work-btn primary" data-toggle-form="newResource"${disabled("resource")}>Add resource +</button></div></div><form class="work-form inline-form" id="newResource" data-work-form="resource" hidden><h3>Add an inventory pool</h3><div class="work-form-grid"><label>Resource name<input class="work-input" name="name" required maxlength="80" placeholder="District rescue vehicles"></label><label>Type<select class="work-select" name="type">${["Personnel","Equipment","Supplies","Facilities"].map((type) => `<option>${type}</option>`).join("")}</select></label><label>Total capacity<input class="work-input" name="total" type="number" min="1" max="1000000" step="1" required value="5"></label><label>Unit name<input class="work-input" name="unit" required maxlength="30" placeholder="vehicles"></label><label>Organization<input class="work-input" name="organization" required maxlength="70" placeholder="Training response collective"></label><label>Daily unit cost / INR<input class="work-input" name="cost" type="number" min="0" max="10000000" step="1" required value="1000"></label><label class="full">Capabilities and specifications<textarea class="work-input" name="capability" required maxlength="350" rows="2" placeholder="Capacity, qualifications, operating constraints, readiness..."></textarea></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Add inventory pool</button><button type="button" class="work-btn" data-toggle-form="newResource">Cancel</button></div></form><form class="work-form inline-form" id="assignResource" data-work-form="assign" hidden><h3>Assign available capacity</h3><div class="work-form-grid"><label>Resource<select name="resourceId" class="work-select" required>${resourceOptions()}</select></label><label>Active crisis<select name="crisisId" class="work-select" required>${crisisOptions()}</select></label><label>Quantity<input name="quantity" class="work-input" type="number" min="1" max="1000000" value="1" step="1" required></label><label>Assignment rationale<input name="reason" class="work-input" required maxlength="220" placeholder="Agreed operational need"></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Confirm demo assignment</button><button type="button" class="work-btn" data-toggle-form="assignResource">Cancel</button></div></form><div class="table-scroll"><table class="work-table"><thead><tr><th>Resource / organization</th><th>Capacity</th><th>Available</th><th>Utilization</th><th>Details</th></tr></thead><tbody id="resourceRows">${resourceRows()}</tbody></table></div>${resourceDetail(resourceById(ui.selectedResource))}`;
     }
 
-    // The deterministic demo heuristic is transparent, not a clinical or life-saving model.
-    function recommendation(resource,capacity = available(resource),severityWeight = 65) {
-      const ranked = resourceRequests(resource.id).map((request) => {
-        const crisis = crisisById(request.crisisId);
-        const readiness = Math.max(0,60 - (crisis.responseMinutes ?? 30)) / 60;
-        const score = Math.round(crisis.severity / 5 * severityWeight + readiness * (100 - severityWeight));
-        return { ...request,crisis,score };
-      }).sort((a,b) => b.score-a.score || a.crisis.createdAt.localeCompare(b.crisis.createdAt));
-      let remaining = Math.max(0,Math.floor(capacity));
-      return ranked.map((request) => {
-        const allocation = Math.min(request.quantity,remaining);
-        remaining -= allocation;
-        return { ...request,allocation };
-      });
-    }
+    // The ranking itself is calculated and enforced on the server (severity-weighted, deterministic, never above available capacity).
+    const planFor = (resource) => db.plans[resource.id] || [];
     function pressuredPools() {
       return db.resources.filter((resource) => resourceRequests(resource.id).reduce((sum,item) => sum+item.quantity,0) > available(resource));
     }
@@ -535,14 +606,25 @@ export function initializeArchive() {
     function conflictsView() {
       const pools = pressuredPools();
       const chosen = resourceById(ui.conflictResource) || pools[0] || db.resources[0];
-      return `<div class="workspace-tools"><div><span class="state-label critical">${pools.length} pools under demand pressure</span></div><div><button type="button" class="work-btn" data-toggle-form="newRequest"${disabled("allocate")}>Add a competing request +</button><button type="button" class="work-btn" data-recalculate>Recalculate priorities ↻</button></div></div><p class="demo-notice">Suggestions are ranked by severity (65%) and sample response time (35%), and never exceed what's actually available. A person always makes the final call.</p><form class="work-form inline-form" id="newRequest" data-work-form="request" hidden><h3>Add a resource request</h3><div class="work-form-grid"><label>Resource pool<select name="resourceId" class="work-select" required>${resourceOptions(chosen.id)}</select></label><label>Active crisis<select name="crisisId" class="work-select" required>${crisisOptions()}</select></label><label>Additional requested quantity<input name="quantity" class="work-input" type="number" min="1" max="1000000" step="1" value="2" required></label><label>Reason<input name="reason" class="work-input" required maxlength="200" placeholder="Unmet operational demand"></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Record request</button><button type="button" class="work-btn" data-toggle-form="newRequest">Cancel</button></div></form>${pools.length ? pools.map((resource) => {
-        const plan = recommendation(resource), demand = plan.reduce((sum,item) => sum+item.quantity,0);
+      return `<div class="workspace-tools"><div><span class="state-label critical">${pools.length} pools under demand pressure</span></div><div><button type="button" class="work-btn" data-toggle-form="newRequest"${disabled("allocate")}>Add a competing request +</button><button type="button" class="work-btn" data-recalculate>Recalculate priorities ↻</button></div></div><p class="demo-notice">Suggestions are ranked by severity (65%) and recorded response time (35%), and never exceed what's actually available. A person always makes the final call.</p><form class="work-form inline-form" id="newRequest" data-work-form="request" hidden><h3>Add a resource request</h3><div class="work-form-grid"><label>Resource pool<select name="resourceId" class="work-select" required>${resourceOptions(chosen.id)}</select></label><label>Active crisis<select name="crisisId" class="work-select" required>${crisisOptions()}</select></label><label>Additional requested quantity<input name="quantity" class="work-input" type="number" min="1" max="1000000" step="1" value="2" required></label><label>Reason<input name="reason" class="work-input" required maxlength="200" placeholder="Unmet operational demand"></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Record request</button><button type="button" class="work-btn" data-toggle-form="newRequest">Cancel</button></div></form>${pools.length ? pools.map((resource) => {
+        const plan = planFor(resource), demand = plan.reduce((sum,item) => sum+item.quantity,0);
         return `<section class="conflict-item"><div class="conflict-top"><div><h3>${esc(resource.name)}</h3><p>${fmt(demand)} additional ${esc(resource.unit)} requested / ${fmt(available(resource))} available / ${plan.length > 1 ? "competing incidents" : "uncovered demand"}</p></div><button type="button" class="work-btn primary" data-approve-pool="${esc(resource.id)}"${!has("approve") || available(resource) === 0 ? " disabled" : ""}>Approve recommendation ↗</button></div>${plan.map((item) => `<div class="allocation-line"><span>${esc(item.crisis.city)} / ${esc(item.crisis.title)}</span><small>Score ${item.score}</small><div class="capacity-bar"><i style="width:${item.score}%"></i></div><b>${item.allocation} / ${item.quantity}</b></div>`).join("")}<p class="map-footnote">Proposed assignment / requested quantity. Shortfall: ${fmt(Math.max(0,demand-available(resource)))} ${esc(resource.unit)}. ${resource.maintenance ? "This pool is unavailable for maintenance." : "A manager or admin must approve."}</p></section>`;
-      }).join("") : '<p class="work-empty">No current resource shortfalls. Add competing requests to explore the workflow.</p>'}<details class="ws-collapse"><summary>Need something different?<small>Override the suggestion or propose a compromise</small><i aria-hidden="true">+</i></summary><form class="work-form" data-work-form="override"><div class="work-form-grid"><label>Resource pool<select name="resourceId" class="work-select" required>${resourceOptions(chosen.id)}</select></label><label>Active crisis<select name="crisisId" class="work-select" required>${crisisOptions()}</select></label><label>Quantity to allocate<input name="quantity" class="work-input" type="number" min="1" max="1000000" step="1" value="1" required></label><label>Recorded override reason<input name="reason" class="work-input" required minlength="8" maxlength="250" placeholder="Explain why the recommendation should change"></label></div><div class="form-actions"><button type="submit" class="work-btn"${disabled("approve")}>Record override &amp; allocate</button><p>Capacity limits still apply.</p></div></form><form class="work-form" data-work-form="negotiation"><div class="work-form-grid"><label>Resource<select name="resourceId" class="work-select">${resourceOptions(chosen.id)}</select></label><label>Compromise proposal<input name="proposal" class="work-input" required minlength="5" maxlength="350" placeholder="Share capacity now, arrange partner backfill later..."></label></div><div class="form-actions"><button type="submit" class="work-btn"${disabled("allocate")}>Log negotiation proposal</button></div></form></details>${db.negotiations.length ? `<ul class="decision-list" style="margin-top:20px">${db.negotiations.slice(0,6).map((entry) => `<li><small>${esc(when(entry.at))} IST / ${esc(entry.actor)} / ${esc(resourceById(entry.resourceId)?.name)}</small>${esc(entry.proposal)}<div class="detail-controls">${statusLabel(entry.status)}${entry.status === "pending" ? `<button type="button" class="work-btn" data-agree-negotiation="${esc(entry.id)}"${disabled("approve")}>Record agreement</button>` : ""}</div></li>`).join("")}</ul>` : ""}<h3 class="section-title">Decision record</h3>${db.decisions.length ? `<ul class="decision-list">${db.decisions.slice(0,8).map((decision) => `<li><small>${esc(when(decision.at))} IST / ${esc(decision.actor)} / ${esc(decision.type)}</small>${esc(decision.text)}</li>`).join("")}</ul>` : '<p class="work-empty">Approve a recommendation or record an override to create a decision record and local stakeholder notice.</p>'}`;
+      }).join("") : '<p class="work-empty">No current resource shortfalls. Add competing requests to explore the workflow.</p>'}<details class="ws-collapse"><summary>Need something different?<small>Override the suggestion or propose a compromise</small><i aria-hidden="true">+</i></summary><form class="work-form" data-work-form="override"><div class="work-form-grid"><label>Resource pool<select name="resourceId" class="work-select" required>${resourceOptions(chosen.id)}</select></label><label>Active crisis<select name="crisisId" class="work-select" required>${crisisOptions()}</select></label><label>Quantity to allocate<input name="quantity" class="work-input" type="number" min="1" max="1000000" step="1" value="1" required></label><label>Recorded override reason<input name="reason" class="work-input" required minlength="8" maxlength="250" placeholder="Explain why the recommendation should change"></label></div><div class="form-actions"><button type="submit" class="work-btn"${disabled("approve")}>Record override &amp; allocate</button><p>Capacity limits still apply.</p></div></form><form class="work-form" data-work-form="negotiation"><div class="work-form-grid"><label>Resource<select name="resourceId" class="work-select">${resourceOptions(chosen.id)}</select></label><label>Compromise proposal<input name="proposal" class="work-input" required minlength="5" maxlength="350" placeholder="Share capacity now, arrange partner backfill later..."></label></div><div class="form-actions"><button type="submit" class="work-btn"${disabled("allocate")}>Log negotiation proposal</button></div></form></details>${db.negotiations.length ? `<ul class="decision-list" style="margin-top:20px">${db.negotiations.slice(0,6).map((entry) => `<li><small>${esc(when(entry.at))} IST / ${esc(entry.actor)} / ${esc(resourceById(entry.resourceId)?.name)}</small>${esc(entry.proposal)}<div class="detail-controls">${statusLabel(entry.status)}${entry.status === "pending" ? `<button type="button" class="work-btn" data-agree-negotiation="${esc(entry.id)}"${disabled("approve")}>Record agreement</button>` : ""}</div></li>`).join("")}</ul>` : ""}<h3 class="section-title">Decision record</h3>${db.decisions.length ? `<ul class="decision-list">${db.decisions.slice(0,8).map((decision) => `<li><small>${esc(when(decision.at))} IST / ${esc(decision.actor)} / ${esc(decision.type)}</small>${esc(decision.text)}</li>`).join("")}</ul>` : '<p class="work-empty">Approve a recommendation or record an override to create a decision record and a stakeholder notice.</p>'}`;
     }
 
+    function credentialBox() {
+      if (!ui.credential) return "";
+      const c = ui.credential;
+      return `<div class="req-card credential-box" role="status"><b>Temporary password for ${esc(c.name)} (${esc(c.email)})</b><p style="margin:8px 0"><code>${esc(c.password)}</code></p><p style="color:var(--dim);font-size:12px">Copy it now. It is shown only once; the person must change it after signing in.</p><button type="button" class="work-btn" data-dismiss-credential>Done</button></div>`;
+    }
+    function passwordForm() {
+      return `<details class="ws-collapse"><summary>Account, privacy &amp; password<i aria-hidden="true">+</i></summary><div style="padding:14px 18px 6px"><div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap"><button type="button" class="work-btn" data-download-my-data style="font-size:12px">Download my data (JSON) 📥</button><button type="button" class="work-btn" data-open-delete-account style="font-size:12px;color:#fca5a5;border-color:rgba(239,68,68,0.4)">Delete my account 🗑</button><button type="button" class="work-btn" data-open-privacy style="font-size:12px">Privacy &amp; Data Notice 📜</button></div></div><form class="work-form" data-work-form="password" autocomplete="off"><div class="work-form-grid"><label>Current password<input class="work-input" name="current" type="password" autocomplete="current-password" required></label><label>New password<input class="work-input" name="next" type="password" autocomplete="new-password" required minlength="10" maxlength="128"></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Update password</button><p>At least 10 characters, with letters and a number or symbol.</p></div></form></details>`;
+    }
     function usersView() {
-      return `<div class="workspace-tools"><div><span class="module-count">${db.users.length} demo users / ${new Set(db.users.map((user) => user.organization)).size} organizations</span></div><button type="button" class="work-btn primary" data-toggle-form="newUser"${disabled("users")}>Prepare local invitation +</button></div><p class="workspace-warning">The "View as" switch only previews what each role can see — it isn't a real sign-in. A live deployment would use your organization's own accounts.</p><form class="work-form inline-form" id="newUser" data-work-form="user" hidden><h3>Prepare a demo invitation</h3><div class="work-form-grid"><label>Name<input name="name" class="work-input" required maxlength="65" placeholder="Priya Sen"></label><label>Email<input name="email" class="work-input" type="email" required maxlength="120" placeholder="priya@example.org"></label><label>Organization<input name="organization" class="work-input" required maxlength="75" placeholder="Training relief collective"></label><label>Role<select name="role" class="work-select">${roleOptions("viewer")}</select></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Create local invitation record</button><button type="button" class="work-btn" data-toggle-form="newUser">Cancel</button><p>No email is sent. Use fictional identities.</p></div></form><div class="table-scroll"><table class="work-table"><thead><tr><th>User</th><th>Organization</th><th>Role</th><th>Access status</th></tr></thead><tbody>${db.users.map((user) => `<tr><td>${esc(user.name)}<small>${esc(user.email)}</small></td><td>${esc(user.organization)}</td><td><select class="work-select" data-user-role="${esc(user.id)}" aria-label="Demo role for ${esc(user.name)}"${disabled("users")}>${roleOptions(user.role)}</select></td><td>${esc(user.status)}</td></tr>`).join("")}</tbody></table></div><details class="ws-collapse"><summary>What each role can do<i aria-hidden="true">+</i></summary><div class="table-scroll"><table class="role-matrix"><thead><tr><th>Action</th><th>Admin</th><th>Crisis manager</th><th>Resource coordinator</th><th>Viewer</th></tr></thead><tbody><tr><td>View incidents &amp; reports</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr><tr><td>Create &amp; update crises</td><td>Yes</td><td>Yes</td><td>—</td><td>—</td></tr><tr><td>Edit inventory &amp; maintenance</td><td>Yes</td><td>—</td><td>Yes</td><td>—</td></tr><tr><td>Assign available resources</td><td>Yes</td><td>Yes</td><td>Yes</td><td>—</td></tr><tr><td>Approve or override priorities</td><td>Yes</td><td>Yes</td><td>—</td><td>—</td></tr><tr><td>Manage users &amp; roles</td><td>Yes</td><td>—</td><td>—</td><td>—</td></tr></tbody></table></div></details><h3 class="section-title">Activity audit log</h3>${auditList(db.audit.slice(0,12))}`;
+      const adminOutboxSection = has("users") ? `<details class="ws-collapse" style="margin-top:24px"><summary style="display:flex;justify-content:space-between;align-items:center"><span>System Outbox &amp; Delivery Log (${(db.adminOutbox || []).length})</span><button type="button" class="work-btn" data-refresh-admin-outbox style="font-size:11px;padding:2px 8px">Refresh ↻</button></summary><div class="table-scroll" style="margin-top:10px"><table class="work-table"><thead><tr><th>Channel</th><th>Recipient</th><th>Status</th><th>Retries</th><th>Dispatched / Created</th></tr></thead><tbody>${(db.adminOutbox && db.adminOutbox.length) ? db.adminOutbox.map((msg) => `<tr><td><b>${esc(msg.channel.toUpperCase())}</b></td><td>${esc(msg.recipient)}</td><td><span class="state-label ${msg.status === 'sent' ? 'active' : msg.status === 'failed' ? 'critical' : msg.status === 'not_configured' ? 'high' : 'pending'}">${esc(msg.status)}</span>${msg.error ? `<br><small style="color:var(--red);font-size:10px">${esc(msg.error)}</small>` : ''}</td><td>${msg.attempts} / ${msg.maxAttempts}</td><td><small>${esc(msg.deliveredAt ? when(msg.deliveredAt) : when(msg.createdAt))} IST</small></td></tr>`).join("") : '<tr><td colspan="5" class="work-empty">No outbound notifications logged across the system yet. Click Refresh to load.</td></tr>'}</tbody></table></div></details>` : '';
+      const retentionDays = Number(db.config?.dataRetentionDays || 0);
+      const retentionBanner = `<div class="req-card" style="margin:20px 0;padding:12px 16px;background:var(--surface);border:1px solid var(--line-soft);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px"><div><span style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:0.06em">Data Retention &amp; Auto-Anonymisation:</span> <b style="margin-left:6px;color:var(--ink)">${retentionDays > 0 ? `${retentionDays} days (Active)` : 'Disabled (Default)'}</b><p style="margin:4px 0 0;font-size:11px;color:var(--dim)">Resolved emergency requests older than ${retentionDays > 0 ? retentionDays + ' days' : 'configured threshold'} have names, phones, addresses and verification photos erased.</p></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${has("users") ? `<button type="button" class="work-btn" data-run-retention-pass style="font-size:11px;padding:3px 8px">Run retention pass now ↻</button>` : ''}<button type="button" class="work-btn" data-open-privacy style="font-size:11px;padding:3px 8px">Privacy Notice 📜</button></div></div>`;
+      return `<div class="workspace-tools"><div><span class="module-count">${db.users.length} users / ${new Set(db.users.map((user) => user.organization)).size} organizations</span></div><button type="button" class="work-btn primary" data-toggle-form="newUser"${disabled("users")}>Add a user +</button></div><p class="workspace-warning">Every person signs in with their own account. These roles are enforced by the server on every action, not just in this screen.</p>${credentialBox()}<form class="work-form inline-form" id="newUser" data-work-form="user" hidden><h3>Create a user account</h3><div class="work-form-grid"><label>Name<input name="name" class="work-input" required maxlength="65" placeholder="Priya Sen"></label><label>Email<input name="email" class="work-input" type="email" required maxlength="120" placeholder="priya@example.org"></label><label>Organization<input name="organization" class="work-input" required maxlength="75" placeholder="Relief collective"></label><label>Role<select name="role" class="work-select">${roleOptions("viewer")}</select></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Create account</button><button type="button" class="work-btn" data-toggle-form="newUser">Cancel</button><p>A temporary password is generated and shown once. The person must change it after first sign-in.</p></div></form><div class="table-scroll"><table class="work-table"><thead><tr><th>User</th><th>Organization</th><th>Role</th><th>Access status</th></tr></thead><tbody>${db.users.map((user) => `<tr><td>${esc(user.name)}<small>${esc(user.email)}</small></td><td>${esc(user.organization)}</td><td><select class="work-select" data-user-role="${esc(user.id)}" aria-label="Role for ${esc(user.name)}"${disabled("users")}>${roleOptions(user.role)}</select></td><td>${esc(user.status)}${has("users") && String(user.id) !== String(db.me?.id) ? `<div class="detail-controls"><button type="button" class="text-action" data-user-status="${esc(user.id)}" data-next="${user.status === "Active" ? "disabled" : "active"}">${user.status === "Active" ? "Disable" : "Re-enable"}</button><button type="button" class="text-action" data-user-reset="${esc(user.id)}">Reset password</button><button type="button" class="text-action danger-text" data-user-anonymise="${esc(user.id)}" style="color:#fca5a5">Anonymise 🛡</button></div>` : ""}</td></tr>`).join("")}</tbody></table></div>${passwordForm()}<details class="ws-collapse"><summary>What each role can do<i aria-hidden="true">+</i></summary><div class="table-scroll"><table class="role-matrix"><thead><tr><th>Action</th><th>Admin</th><th>Crisis manager</th><th>Resource coordinator</th><th>Viewer</th></tr></thead><tbody><tr><td>View incidents &amp; reports</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr><tr><td>Create &amp; update crises</td><td>Yes</td><td>Yes</td><td>—</td><td>—</td></tr><tr><td>Edit inventory &amp; maintenance</td><td>Yes</td><td>—</td><td>Yes</td><td>—</td></tr><tr><td>Assign available resources</td><td>Yes</td><td>Yes</td><td>Yes</td><td>—</td></tr><tr><td>Approve or override priorities</td><td>Yes</td><td>Yes</td><td>—</td><td>—</td></tr><tr><td>Manage users &amp; roles</td><td>Yes</td><td>—</td><td>—</td><td>—</td></tr></tbody></table></div></details>${retentionBanner}<div style="display:flex;justify-content:space-between;align-items:center;margin:24px 0 10px"><h3 class="section-title" style="margin:0">Activity audit log</h3><a class="work-btn" href="/api/exports/audit.csv" download="audit.csv" style="text-decoration:none">Export CSV ↗</a></div>${auditList(db.audit.slice(0,12))}${adminOutboxSection}`;
     }
 
     function channelOptions(chosen) {
@@ -552,55 +634,79 @@ export function initializeArchive() {
       const tabs = [["messages","Messages & comments"],["notifications",`Notifications (${db.notifications.filter((item) => !item.read).length})`],["documents","Documents"]];
       const top = `<div class="workspace-tools"><div class="work-tabs" aria-label="Collaboration sections">${tabs.map(([id,label]) => `<button type="button" data-communication-tab="${id}" class="${ui.communicationTab === id ? "is-active" : ""}" aria-pressed="${ui.communicationTab === id}">${esc(label)}</button>`).join("")}</div></div>`;
       if (ui.communicationTab === "notifications") {
-        return `${top}<p class="demo-notice">Only in-app demo notices are recorded. Email, SMS, and push below are intended delivery preferences; no external provider is connected and nothing is sent.</p><div class="channel-settings">${[["email","Email"],["sms","SMS"],["push","Push"]].map(([key,label]) => `<label><input type="checkbox" data-notification-pref="${key}"${db.preferences[key] ? " checked" : ""}${disabled("save")}>${label} preference</label>`).join("")}</div><button type="button" class="work-btn" data-mark-notifications>Mark local notices as read</button><ul class="messages">${db.notifications.length ? db.notifications.map((notice) => `<li><div class="message-head"><span>${notice.read ? "Read" : "Unread"} / ${esc(notice.channel)}</span><small>${esc(when(notice.at))} IST</small></div><p>${esc(notice.text)}</p></li>`).join("") : '<li class="work-empty">No notices yet. Update a crisis or approve an allocation.</li>'}</ul>`;
+        const isPhoneVerified = Boolean(db.me?.phoneVerified);
+        const phoneNum = db.me?.phone || "";
+        const emailReady = Boolean(db.config.emailDelivery);
+        const smsReady = Boolean(db.config.smsDelivery);
+        const pushReady = Boolean(db.config.pushDelivery);
+
+        const providerInfo = `<div class="req-card" style="margin-bottom:14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:10px 14px;background:var(--surface);border:1px solid var(--line-soft);border-radius:4px;"><span style="font-size:12px;color:var(--dim)">Delivery Services:</span><span class="state-label ${emailReady ? 'active' : 'moderate'}">Email: ${emailReady ? 'Connected' : 'Not configured'}</span><span class="state-label ${smsReady ? 'active' : 'moderate'}">SMS: ${smsReady ? 'Connected' : 'Not configured'}</span><span class="state-label ${pushReady ? 'active' : 'moderate'}">Push: ${pushReady ? 'Connected' : 'Not configured'}</span></div>`;
+
+        const phoneSection = `<div class="req-card" style="margin-bottom:16px;background:var(--surface);border:1px solid var(--line-soft);padding:12px 14px;border-radius:4px;"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><span style="font-size:12px;color:var(--dim)">Emergency Dispatch Phone:</span> <b style="margin-left:4px">${esc(phoneNum || "No phone added")}</b> <span style="margin-left:8px" class="state-label ${isPhoneVerified ? 'active' : 'critical'}">${isPhoneVerified ? 'Verified ✓' : 'Unverified'}</span></div>${phoneNum && !isPhoneVerified ? `<div style="display:inline-flex;gap:6px;align-items:center"><button type="button" class="work-btn" data-send-phone-otp>Send OTP</button><input type="text" id="phoneOtpInput" class="work-input" placeholder="6-digit code" maxlength="6" style="width:100px;padding:4px 8px;font-size:12px" aria-label="Verification OTP"><button type="button" class="work-btn primary" data-verify-phone-otp>Verify OTP</button></div>` : ''}</div>${!isPhoneVerified ? `<p style="margin:6px 0 0;font-size:11px;color:var(--dim)">Emergency dispatch alerts via SMS require a verified mobile number.</p>` : ''}</div>`;
+
+        const channelSettings = `<div class="channel-settings">${[["email","Email"],["sms","SMS"],["push","Push"]].map(([key,label]) => {
+          const isSms = key === "sms";
+          const canSms = isPhoneVerified;
+          const isChecked = Boolean(db.preferences[key]);
+          const smsDisabled = isSms && !canSms;
+          return `<label style="display:inline-flex;align-items:center;gap:6px;margin-right:14px;cursor:${smsDisabled?'not-allowed':'pointer'}"><input type="checkbox" data-notification-pref="${key}"${isChecked ? " checked" : ""}${smsDisabled ? ' disabled title="Phone verification required"' : disabled("save")}>${label} preference ${smsDisabled ? '<small style="color:var(--amber);font-size:11px">(Requires verified phone)</small>' : ''}</label>`;
+        }).join("")}</div>`;
+
+        const outboxList = `<details class="ws-collapse" style="margin-top:22px" open><summary style="display:flex;justify-content:space-between;align-items:center"><span>Dispatched Outbox Log (${(db.outbox || []).length})</span><button type="button" class="work-btn" data-refresh-my-outbox style="font-size:11px;padding:2px 8px">Refresh ↻</button></summary><div class="table-scroll" style="margin-top:10px"><table class="work-table"><thead><tr><th>Channel</th><th>Recipient</th><th>Status</th><th>Retries</th><th>Delivered / Created</th></tr></thead><tbody>${(db.outbox && db.outbox.length) ? db.outbox.map((msg) => `<tr><td><b>${esc(msg.channel.toUpperCase())}</b></td><td>${esc(msg.recipient)}</td><td><span class="state-label ${msg.status === 'sent' ? 'active' : msg.status === 'failed' ? 'critical' : msg.status === 'not_configured' ? 'high' : 'pending'}">${esc(msg.status)}</span>${msg.error ? `<br><small style="color:var(--red);font-size:10px">${esc(msg.error)}</small>` : ''}</td><td>${msg.attempts} / ${msg.maxAttempts}</td><td><small>${esc(msg.deliveredAt ? when(msg.deliveredAt) : when(msg.createdAt))} IST</small></td></tr>`).join("") : '<tr><td colspan="5" class="work-empty">No outbound notifications recorded for your account yet.</td></tr>'}</tbody></table></div></details>`;
+
+        return `${top}${providerInfo}${phoneSection}${channelSettings}<button type="button" class="work-btn" data-mark-notifications>Mark notices as read</button><ul class="messages">${db.notifications.length ? db.notifications.map((notice) => `<li><div class="message-head"><span>${notice.read ? "Read" : "Unread"} / ${esc(notice.channel)}</span><small>${esc(when(notice.at))} IST</small></div><p>${esc(notice.text)}</p></li>`).join("") : '<li class="work-empty">No notices yet. Update a crisis or approve an allocation.</li>'}</ul>${outboxList}`;
       }
       const channelPicker = `<div class="workspace-tools"><div><label class="overline" for="messageChannel">Thread</label><select id="messageChannel" class="work-select" aria-label="Select a collaboration thread">${channelOptions(ui.channel)}</select></div></div>`;
       if (ui.communicationTab === "documents") {
         const documents = db.attachments.filter((file) => file.channel === ui.channel);
-        return `${top}${channelPicker}<p class="demo-notice">Files remain in this browser session. Only attachment metadata is kept with the demo; reattach a file after a page reload. No document is uploaded to a server.</p><form class="work-form inline-form" data-work-form="attachment"><div class="work-form-grid"><label class="full">Attach a training document<input name="file" id="workFile" class="work-input" type="file" required accept=".pdf,.csv,.txt,.json,.png,.jpg,.jpeg"${disabled("message")}></label></div><div class="form-actions"><button type="submit" class="work-btn primary"${disabled("message")}>Attach to this thread</button><p>PDF, CSV, text, JSON, PNG, JPG. Maximum 5 MB. No sensitive data.</p></div></form><ul class="file-list">${documents.length ? documents.map((file) => `<li><div>${esc(file.name)}<small>${fmt(Math.ceil(file.size/1024))} KB / ${esc(file.author)} / ${esc(when(file.at))} IST</small></div>${attachmentsInSession.has(file.id) ? `<button type="button" class="work-btn" data-download-attachment="${esc(file.id)}">Download ↗</button>` : '<span class="module-count">Session file unavailable</span>'}</li>`).join("") : '<li class="work-empty">No documents attached to this thread yet.</li>'}</ul>`;
+        return `${top}${channelPicker}<p class="demo-notice">Files are uploaded to the ResQSync server and stay attached to this thread for everyone with access.</p><form class="work-form inline-form" data-work-form="attachment"><div class="work-form-grid"><label class="full">Attach a document<input name="file" id="workFile" class="work-input" type="file" required accept=".pdf,.csv,.txt,.json,.png,.jpg,.jpeg"${disabled("message")}></label></div><div class="form-actions"><button type="submit" class="work-btn primary"${disabled("message")}>Attach to this thread</button><p>PDF, CSV, text, JSON, PNG, JPG. Maximum 5 MB.</p></div></form><ul class="file-list">${documents.length ? documents.map((file) => `<li><div>${esc(file.name)}<small>${fmt(Math.ceil(file.size/1024))} KB / ${esc(file.author)} / ${esc(when(file.at))} IST</small></div><button type="button" class="work-btn" data-download-attachment="${esc(file.id)}">Download ↗</button></li>`).join("") : '<li class="work-empty">No documents attached to this thread yet.</li>'}</ul>`;
       }
       const messages = db.messages.filter((message) => message.channel === ui.channel);
-      return `${top}${channelPicker}<ul class="messages">${messages.length ? messages.map((message) => `<li><div class="message-head"><span>${esc(message.author)}</span><small>${esc(when(message.at))} IST</small></div><p>${esc(message.text)}</p><div class="message-meta">${ui.channel === "network" ? "Network message" : ui.channel === "decisions" ? "Decision comment" : "Incident comment"} / local demo</div></li>`).join("") : '<li class="work-empty">Start a conversation in this thread. No live stakeholders are connected.</li>'}</ul><form class="work-form" data-work-form="message" style="margin-top:25px"><label>Message / comment<textarea name="text" class="work-input" rows="3" required minlength="2" maxlength="1200" placeholder="Share a fictional update, question, or decision rationale..."${disabled("message")}></textarea></label><div class="form-actions"><button type="submit" class="work-btn primary"${disabled("message")}>Post local message ↗</button><p>Same-browser tabs share updates when local storage is available. This is not network real-time messaging.</p></div></form>`;
+      return `${top}${channelPicker}<ul class="messages">${messages.length ? messages.map((message) => `<li><div class="message-head"><span>${esc(message.author)}</span><small>${esc(when(message.at))} IST</small></div><p>${esc(message.text)}</p><div class="message-meta">${ui.channel === "network" ? "Network message" : ui.channel === "decisions" ? "Decision comment" : "Incident comment"} </div></li>`).join("") : '<li class="work-empty">Start a conversation in this thread.</li>'}</ul><form class="work-form" data-work-form="message" style="margin-top:25px"><label>Message / comment<textarea name="text" class="work-input" rows="3" required minlength="2" maxlength="1200" placeholder="Share an update, question, or decision rationale..."${disabled("message")}></textarea></label><div class="form-actions"><button type="submit" class="work-btn primary"${disabled("message")}>Post message ↗</button><p>Everyone signed in sees new messages as soon as they are posted.</p></div></form>`;
     }
 
-    function periodCrises() {
-      const cutoff = Date.now() - ui.analyticsDays * 86400000;
-      return db.crises.filter((crisis) => new Date(crisis.createdAt).getTime() >= cutoff);
+    function ensureAnalytics() {
+      const days = ui.analyticsDays;
+      if (db.analytics[days] || db.analyticsLoading === days) return;
+      db.analyticsLoading = days;
+      apiJson("GET",`/analytics?days=${days}`)
+        .then((data) => { db.analytics[days] = data; db.analyticsError = null; })
+        .catch((error) => { db.analyticsError = error.message; })
+        .finally(() => { if (db.analyticsLoading === days) db.analyticsLoading = 0; if (ui.module === "analytics" && panelOpen) renderWorkspace("analytics"); });
     }
-    function utilizationRows() {
-      return ["Personnel","Equipment","Supplies","Facilities"].map((type) => {
-        const pools = db.resources.filter((resource) => resource.type === type && !resource.maintenance);
-        const percent = pools.length ? Math.round(pools.reduce((sum,resource) => sum+used(resource)/resource.total*100,0)/pools.length) : 0;
-        return `<div class="util-row"><span>${type}</span><div class="capacity-bar"><i style="width:${percent}%"></i></div><span>${percent}%</span></div>`;
-      }).join("");
+    function utilizationRows(report) {
+      return report.utilization.map((row) => `<div class="util-row"><span>${esc(row.type)}</span><div class="capacity-bar"><i style="width:${row.percent}%"></i></div><span>${row.percent}%</span></div>`).join("");
     }
-    function trendSvg() {
-      const days = Math.min(ui.analyticsDays,14), counts = [];
-      for (let index = days-1; index >= 0; index--) {
-        const start = new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate()-index);
-        const end = start.getTime()+86400000;
-        counts.push(db.crises.filter((crisis) => new Date(crisis.createdAt).getTime() >= start.getTime() && new Date(crisis.createdAt).getTime() < end).length);
-      }
+    function trendSvg(report) {
+      const counts = report.trend.map((point) => point.count), days = counts.length, span = Math.max(1,days-1);
       const max = Math.max(1,...counts);
-      const points = counts.map((count,index) => `${35+index/(days-1)*420},${205-count/max*145}`).join(" ");
-      return `<svg class="trend-chart" viewBox="0 0 490 255" role="img" aria-label="Training incidents created over the last ${days} days: ${counts.join(", ")}"><path d="M35 60H455M35 130H455M35 205H455" fill="none" stroke="#33402e" stroke-width="1"/><polyline class="trend-line" points="${points}" fill="none" stroke="#b9c9b4" stroke-width="2"/>${counts.map((count,index) => `<circle cx="${35+index/(days-1)*420}" cy="${205-count/max*145}" r="3" fill="#b9c9b4"/>`).join("")}<g fill="#8c9386" font-family="Inter, sans-serif" font-size="8"><text x="35" y="235">${days} days ago</text><text x="432" y="235">Today</text><text x="15" y="64">${max}</text><text x="18" y="208">0</text></g></svg>`;
+      const points = counts.map((count,index) => `${35+index/span*420},${205-count/max*145}`).join(" ");
+      return `<svg class="trend-chart" viewBox="0 0 490 255" role="img" aria-label="Incidents created over the last ${days} days: ${counts.join(", ")}"><path d="M35 60H455M35 130H455M35 205H455" fill="none" stroke="#33402e" stroke-width="1"/><polyline class="trend-line" points="${points}" fill="none" stroke="#b9c9b4" stroke-width="2"/>${counts.map((count,index) => `<circle cx="${35+index/span*420}" cy="${205-count/max*145}" r="3" fill="#b9c9b4"/>`).join("")}<g fill="#8c9386" font-family="Inter, sans-serif" font-size="8"><text x="35" y="235">${days} days ago</text><text x="432" y="235">Today</text><text x="15" y="64">${max}</text><text x="18" y="208">0</text></g></svg>`;
     }
     function analyticsView() {
-      const crises = periodCrises(), times = crises.filter((crisis) => Number.isFinite(crisis.responseMinutes));
-      const avg = times.length ? Math.round(times.reduce((sum,crisis) => sum+crisis.responseMinutes,0)/times.length) : 0;
-      return `<div class="workspace-tools"><div><select id="analyticsRange" class="work-select" aria-label="Reporting date range"><option value="7"${selectedAttr(ui.analyticsDays,7)}>Last 7 days</option><option value="30"${selectedAttr(ui.analyticsDays,30)}>Last 30 days</option></select></div><div><button type="button" class="work-btn" data-export="pdf">Export PDF ↓</button><button type="button" class="work-btn" data-export="excel">Export Excel ↓</button></div></div>${statLine([[crises.length,"Training incidents in range"],[crises.filter((crisis) => crisis.status === "resolved").length,"Resolved training incidents"],[`${metrics().utilization}%`,"Current mean pool utilization"],[`${avg} min`,"Mean recorded sample response"]])}<div class="analytics-grid"><section><div class="chart-heading"><h3>Incident trend</h3><small>Created events / ${Math.min(ui.analyticsDays,14)} days</small></div>${trendSvg()}<p class="map-footnote">Counts come from fictional and locally created training events. No live disaster trend is inferred.</p></section><section><div class="chart-heading"><h3>Resource utilization</h3><small>Current inventory</small></div>${utilizationRows()}<p class="map-footnote">Each category averages its non-maintenance pool percentages; different physical units are not summed.</p></section></div><h3 class="section-title">Response time by incident</h3><div class="table-scroll"><table class="work-table"><thead><tr><th>Training incident</th><th>Category</th><th>Status</th><th>Recorded response</th></tr></thead><tbody>${crises.length ? crises.map((crisis) => `<tr><td>${esc(crisis.title)}<small>${esc(crisis.city)}</small></td><td>${esc(crisis.category)}</td><td>${statusLabel(crisis.status)}</td><td>${Number.isFinite(crisis.responseMinutes) ? `${crisis.responseMinutes} min` : "Not yet recorded"}</td></tr>`).join("") : '<tr><td colspan="4" class="work-empty">No events in this date range.</td></tr>'}</tbody></table></div><p class="map-footnote">PDF is a native downloadable report. Excel export is a SpreadsheetML .xml workbook with separate incident, inventory, and audit sheets. Times are seeded examples or elapsed local-demo time to the first assignment.</p>`;
+      const ranges = [7,30,60,90];
+      const tools = `<div class="workspace-tools"><div><select id="analyticsRange" class="work-select" aria-label="Reporting date range">${ranges.map((days) => `<option value="${days}"${selectedAttr(ui.analyticsDays,days)}>Last ${days} days</option>`).join("")}</select></div><div><button type="button" class="work-btn" data-export="pdf">Export PDF ↓</button><button type="button" class="work-btn" data-export="excel">Export Excel ↓</button></div></div>`;
+      const report = db.analytics[ui.analyticsDays];
+      if (!report) {
+        if (!db.analyticsError) ensureAnalytics();
+        return `${tools}<p class="work-empty">${db.analyticsError ? `${esc(db.analyticsError)} <button type="button" class="text-action" data-retry-analytics>Try again</button>` : "Loading report data…"}</p>`;
+      }
+      const severityRows = report.bySeverity.map((row) => `<tr><td>${esc(row.label)}</td><td>${row.count}</td></tr>`).join("");
+      const allocationRows = report.allocationsByDay.length ? report.allocationsByDay.map((row) => `<tr><td>${esc(row.date)}</td><td>${row.count}</td></tr>`).join("") : '<tr><td colspan="2" class="work-empty">No allocations recorded in this range.</td></tr>';
+      return `${tools}${statLine([[report.incidents,"Incidents in range"],[report.resolved,"Resolved incidents"],[`${report.meanUtilization}%`,"Current mean pool utilization"],[`${report.meanResponse} min`,"Mean recorded response"]])}<div class="analytics-grid"><section><div class="chart-heading"><h3>Incident trend</h3><small>Created events / ${report.trend.length} days</small></div>${trendSvg(report)}<p class="map-footnote">Counts of incidents created per day (India time).</p></section><section><div class="chart-heading"><h3>Resource utilization</h3><small>Current inventory</small></div>${utilizationRows(report)}<p class="map-footnote">Each category averages its non-maintenance pool percentages; different physical units are not summed.</p></section></div><div class="analytics-grid"><section><div class="chart-heading"><h3>Incidents by severity</h3><small>In range</small></div><div class="table-scroll"><table class="work-table"><thead><tr><th>Severity</th><th>Incidents</th></tr></thead><tbody>${severityRows}</tbody></table></div></section><section><div class="chart-heading"><h3>Allocation activity</h3><small>Assignments approved per day</small></div><div class="table-scroll"><table class="work-table"><thead><tr><th>Date</th><th>Assignments</th></tr></thead><tbody>${allocationRows}</tbody></table></div></section></div><h3 class="section-title">Response time by incident</h3><div class="table-scroll"><table class="work-table"><thead><tr><th>Incident</th><th>Category</th><th>Status</th><th>Recorded response</th></tr></thead><tbody>${report.responses.length ? report.responses.map((row) => `<tr><td>${esc(row.title)}<small>${esc(row.city)}</small></td><td>${esc(row.category)}</td><td>${statusLabel(row.status)}</td><td>${Number.isFinite(row.responseMinutes) ? `${row.responseMinutes} min` : "Not yet recorded"}</td></tr>`).join("") : '<tr><td colspan="4" class="work-empty">No events in this date range.</td></tr>'}</tbody></table></div><p class="map-footnote">PDF and Excel reports are generated by the server from the same records. Response time is measured from when an incident is created to its first assignment.</p>`;
     }
 
     function decisionView() {
       const initial = resourceById("R-VENT") || db.resources[0];
-      return `<p class="demo-notice">Scenarios are a safe sandbox: nothing here moves real inventory or dispatches anyone. Adjust the numbers and see how an allocation would land.</p><form class="work-form" data-work-form="simulation"><div class="scenario-controls"><label>Resource pool<select id="simulationPool" name="resourceId" class="work-select">${resourceOptions(initial.id)}</select></label><label>Scenario pool capacity<input name="capacity" id="simulationCapacity" type="number" min="0" max="1000000" step="1" value="${available(initial)}" required class="work-input"></label><label>Severity weight / <output id="severityWeightLabel">65%</output><input name="weight" id="severityWeight" type="range" min="20" max="90" step="5" value="65"></label><label>Cost per resource per day / INR<input name="cost" id="simulationCost" class="work-input" type="number" min="0" max="10000000" step="1" value="${initial.cost}" required></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Run scenario ↗</button><p>The remaining score weight uses sample response-time readiness.</p></div></form><div id="simulationResult" class="scenario-result">${ui.simulation ? simulationResult(ui.simulation) : '<p class="work-empty">Adjust a scenario and run it to see proposed allocations, uncovered demand, and an indicative cost comparison.</p>'}</div><details class="ws-collapse"><summary>Saved scenarios<i aria-hidden="true">+</i></summary>${db.simulations.length ? `<ul class="decision-list">${db.simulations.slice(0,6).map((simulation) => `<li><small>${esc(when(simulation.at))} IST / ${esc(simulation.actor)}</small>${esc(simulation.resourceName)} / ${simulation.capacity} available / ${simulation.covered} proposed / ${simulation.demand-simulation.covered} uncovered / ${money(simulation.covered*simulation.cost)} indicative allocation cost</li>`).join("")}</ul>` : '<p class="work-empty">Nothing saved yet. Run a scenario and save it to keep the assumptions alongside the result.</p>'}</details>`;
+      return `<p class="demo-notice">Scenarios are a safe sandbox: running one changes nothing. Adjust the numbers and see how an allocation would land.</p><form class="work-form" data-work-form="simulation"><div class="scenario-controls"><label>Resource pool<select id="simulationPool" name="resourceId" class="work-select">${resourceOptions(initial.id)}</select></label><label>Scenario pool capacity<input name="capacity" id="simulationCapacity" type="number" min="0" max="1000000" step="1" value="${available(initial)}" required class="work-input"></label><label>Severity weight / <output id="severityWeightLabel">65%</output><input name="weight" id="severityWeight" type="range" min="20" max="90" step="5" value="65"></label><label>Cost per resource per day / INR<input name="cost" id="simulationCost" class="work-input" type="number" min="0" max="10000000" step="1" value="${initial.cost}" required></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Run scenario ↗</button><p>The remaining score weight uses recorded response-time readiness.</p></div></form><div id="simulationResult" class="scenario-result">${ui.simulation ? simulationResult(ui.simulation) : '<p class="work-empty">Adjust a scenario and run it to see proposed allocations, uncovered demand, and an indicative cost comparison.</p>'}</div><details class="ws-collapse"><summary>Saved scenarios<i aria-hidden="true">+</i></summary>${db.simulations.length ? `<ul class="decision-list">${db.simulations.slice(0,6).map((simulation) => `<li><small>${esc(when(simulation.at))} IST / ${esc(simulation.actor)}</small>${esc(simulation.resourceName)} / ${simulation.capacity} available / ${simulation.covered} proposed / ${simulation.demand-simulation.covered} uncovered / ${money(simulation.covered*simulation.cost)} indicative allocation cost</li>`).join("")}</ul>` : '<p class="work-empty">Nothing saved yet. Run a scenario and save it to keep the assumptions alongside the result.</p>'}</details>`;
     }
     function simulationResult(simulation) {
       const uncovered = Math.max(0,simulation.demand-simulation.covered);
-      return `${statLine([[`${simulation.demand ? Math.round(simulation.covered/simulation.demand*100) : 0}%`,"Requested demand covered"],[simulation.covered,"Units proposed"],[uncovered,"Units still uncovered"],[money(simulation.covered*simulation.cost),"Indicative daily allocation cost"]])}<div class="table-scroll"><table class="work-table"><thead><tr><th>Training request</th><th>Priority score</th><th>Requested</th><th>Proposed</th></tr></thead><tbody>${simulation.rows.length ? simulation.rows.map((row) => `<tr><td>${esc(row.title)}<small>${esc(row.city)}</small></td><td>${row.score}</td><td>${row.quantity}</td><td>${row.allocation}</td></tr>`).join("") : '<tr><td colspan="4" class="work-empty">No open requests for this resource. Add requests in Conflict Resolution to compare scenarios.</td></tr>'}</tbody></table></div><p class="map-footnote">Assumptions: ${simulation.weight}% severity / ${100-simulation.weight}% sample response-time readiness. Pool cost at full use: ${money(simulation.capacity*simulation.cost)} per day. Unused scenario capacity: ${simulation.capacity-simulation.covered}. Coverage is not a clinical outcome measure.</p><div class="form-actions"><button type="button" class="work-btn" data-save-simulation${disabled("save")}>Save scenario to audit trail</button><button type="button" class="work-btn" data-simulation-conflict>Review live demo requests ↗</button></div>`;
+      return `${statLine([[`${simulation.demand ? Math.round(simulation.covered/simulation.demand*100) : 0}%`,"Requested demand covered"],[simulation.covered,"Units proposed"],[uncovered,"Units still uncovered"],[money(simulation.covered*simulation.cost),"Indicative daily allocation cost"]])}<div class="table-scroll"><table class="work-table"><thead><tr><th>Request</th><th>Priority score</th><th>Requested</th><th>Proposed</th></tr></thead><tbody>${simulation.rows.length ? simulation.rows.map((row) => `<tr><td>${esc(row.title)}<small>${esc(row.city)}</small></td><td>${row.score}</td><td>${row.quantity}</td><td>${row.allocation}</td></tr>`).join("") : '<tr><td colspan="4" class="work-empty">No open requests for this resource. Add requests in Conflict Resolution to compare scenarios.</td></tr>'}</tbody></table></div><p class="map-footnote">Assumptions: ${simulation.weight}% severity / ${100-simulation.weight}% response-time readiness. Pool cost at full use: ${money(simulation.capacity*simulation.cost)} per day. Unused scenario capacity: ${simulation.capacity-simulation.covered}. Coverage is not a clinical outcome measure.</p><div class="form-actions"><button type="button" class="work-btn" data-save-simulation${disabled("save")}>Save scenario to audit trail</button><button type="button" class="work-btn" data-simulation-conflict>Review live requests ↗</button></div>`;
     }
     function renderWorkspace(moduleId) {
       if (!moduleIds.includes(moduleId)) moduleId = "overview";
+      if (!db.loaded) { $("#workspaceContent").innerHTML = '<p class="work-empty">Loading the shared picture…</p>'; return; }
       const moduleChanged = ui.module !== moduleId;
       ui.module = moduleId;
       const module = featureModules.find((item) => item.id === moduleId);
@@ -627,6 +733,8 @@ export function initializeArchive() {
         if (active) button.setAttribute("aria-current","page"); else button.removeAttribute("aria-current");
       });
       $("#demoRole").value = ui.role;
+      const resetButton = $("[data-reset-demo]");
+      if (resetButton) resetButton.hidden = !(has("users") && db.config.allowDemoReset);
       if (moduleId === "conflicts") $(".ws-pager").insertAdjacentHTML("beforebegin",requestQueue());
       $("#wsCrumb").textContent = title;
       const setBadge = (id,value,alert) => {
@@ -640,6 +748,7 @@ export function initializeArchive() {
       setBadge("collaboration",db.notifications.filter((notice) => !notice.read).length,false);
       setDrawer(false,false);
       if (moduleChanged) panel.scrollTop = 0;
+      if (moduleId === "crises" && ui.crisisTab === "map") { setTimeout(initLeafletMap, 60); }
       const crisisStatus = $("#crisisStatus");
       if (moduleId === "crises" && crisisStatus) {
         const crisis = crisisById(ui.selectedCrisis);
@@ -682,34 +791,7 @@ export function initializeArchive() {
       if (active) nav.scrollLeft = Math.max(0,active.offsetLeft - nav.offsetLeft - (nav.clientWidth-active.offsetWidth)/2);
     }
 
-    function assignCapacity(resource,crisis,quantity,reason) {
-      if (!resource || !crisis || crisis.status === "resolved" || resource.maintenance || quantity < 1 || quantity > available(resource)) return false;
-      const at = new Date().toISOString(), actor = actorNames[ui.role];
-      const existing = resource.allocations.find((allocation) => allocation.crisisId === crisis.id);
-      if (existing) { existing.quantity += quantity; existing.at = at; existing.actor = actor; }
-      else resource.allocations.push({ crisisId:crisis.id,quantity,at,actor });
-      const text = `${quantity} ${resource.unit} assigned to ${crisis.title}. ${reason}`;
-      resource.history.unshift({ at,actor,text });
-      crisis.timeline.unshift({ at,actor,text:`${quantity} ${resource.unit} assigned from ${resource.name}. ${reason}` });
-      if (!Number.isFinite(crisis.responseMinutes)) crisis.responseMinutes = Math.max(1,Math.round((Date.now()-new Date(crisis.createdAt).getTime())/60000));
-      let filled = quantity;
-      db.requests.filter((request) => request.resourceId === resource.id && request.crisisId === crisis.id && request.quantity > 0).forEach((request) => {
-        const consumed = Math.min(filled,request.quantity);
-        request.quantity -= consumed;
-        filled -= consumed;
-      });
-      return true;
-    }
-    function releaseCapacity(resource,crisisId) {
-      const assignments = resource.allocations.filter((allocation) => allocation.crisisId === crisisId);
-      const amount = assignments.reduce((sum,allocation) => sum+allocation.quantity,0);
-      if (!amount) return 0;
-      resource.allocations = resource.allocations.filter((allocation) => allocation.crisisId !== crisisId);
-      const at = new Date().toISOString(), actor = actorNames[ui.role], crisis = crisisById(crisisId);
-      resource.history.unshift({ at,actor,text:`Released ${amount} ${resource.unit} from ${crisis?.title || crisisId}.` });
-      crisis?.timeline.unshift({ at,actor,text:`Released ${amount} ${resource.unit} to ${resource.name}.` });
-      return amount;
-    }
+
     function integer(value,min = 0,max = 1000000) {
       const number = Number(value);
       return Number.isFinite(number) && Number.isInteger(number) && number >= min && number <= max ? number : null;
@@ -723,64 +805,108 @@ export function initializeArchive() {
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url),15000);
     }
-    function exportData() {
-      const cutoff = Date.now()-ui.analyticsDays*86400000;
-      return [
-        { name:"Crisis records",headers:["ID","Training incident","City","State","Category","Severity","Status","Response minutes","Latitude","Longitude","Created"],rows:periodCrises().map((crisis) => [crisis.id,crisis.title,crisis.city,crisis.region,crisis.category,severityNames[crisis.severity],crisis.status,crisis.responseMinutes ?? "Not recorded",crisis.lat,crisis.lng,crisis.createdAt]) },
-        { name:"Resource inventory",headers:["ID","Resource","Type","Organization","Capacity","Unit","Assigned","Available","Maintenance","Daily unit cost INR"],rows:db.resources.map((resource) => [resource.id,resource.name,resource.type,resource.organization,resource.total,resource.unit,used(resource),available(resource),resource.maintenance ? "Yes" : "No",resource.cost]) },
-        { name:"Audit trail",headers:["Time","Actor","Action","Details"],rows:db.audit.filter((entry) => new Date(entry.at).getTime() >= cutoff).map((entry) => [entry.at,entry.actor,entry.action,entry.detail]) },
-      ];
+    async function exportReport(kind) {
+      try {
+        const response = await api("GET",`/reports/export?format=${kind === "pdf" ? "pdf" : "xml"}&days=${ui.analyticsDays}`);
+        downloadFile(await response.blob(),kind === "pdf" ? "ResQSync-report.pdf" : "ResQSync-report.xml");
+        showToast(kind === "pdf" ? "PDF report downloaded." : "Excel workbook downloaded. Open the .xml file in Excel.");
+      } catch (error) { if (!error.handled) showToast(error.message); }
     }
-    function exportExcel() {
-      const cell = (value,header = false) => `<Cell${header ? ' ss:StyleID="Header"' : ""}><Data ss:Type="${typeof value === "number" ? "Number" : "String"}">${esc(value)}</Data></Cell>`;
-      const sheets = exportData().map((sheet) => `<Worksheet ss:Name="${esc(sheet.name)}"><Table><Row>${sheet.headers.map((value) => cell(value,true)).join("")}</Row>${sheet.rows.map((row) => `<Row>${row.map((value) => cell(value)).join("")}</Row>`).join("")}</Table></Worksheet>`).join("");
-      const xml = `<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="Header"><Font ss:Bold="1"/></Style></Styles>${sheets}</Workbook>`;
-      downloadFile(new Blob([xml],{ type:"application/vnd.ms-excel;charset=utf-8" }),"ResQSync-India-demo-report.xml");
-      showToast("Excel-compatible workbook download requested. Open the .xml file in Excel. All records are demo data.");
+    async function downloadAttachment(id) {
+      try {
+        const file = db.attachments.find((item) => item.id === id);
+        const response = await api("GET",`/attachments/${enc(id)}/download`);
+        downloadFile(await response.blob(),file ? file.name : "attachment");
+      } catch (error) { if (!error.handled) showToast(error.message); }
     }
-    function exportPdf() {
-      const ascii = (value) => String(value).normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[–—]/g,"-").replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/[^\x20-\x7e]/g,"");
-      const wrap = (value) => {
-        const text = ascii(value), lines = [];
-        let remaining = text;
-        while (remaining.length > 91) {
-          const split = remaining.lastIndexOf(" ",91);
-          const position = split > 25 ? split : 91;
-          lines.push(remaining.slice(0,position));
-          remaining = remaining.slice(position).trimStart();
+
+    async function downloadMyData() {
+      try {
+        showToast("Generating your personal data export...");
+        const response = await api("GET","/me/data");
+        downloadFile(await response.blob(),`resqsync_my_data_${Date.now()}.json`);
+        showToast("Personal data export downloaded.");
+      } catch (error) { if (!error.handled) showToast(error.message); }
+    }
+    let modalReturnFocus = null;
+    function openDeleteAccountModal() {
+      const modal = $("#deleteAccountModal");
+      if (!modal) return;
+      modalReturnFocus = document.activeElement;
+      modal.classList.add("is-open");
+      modal.inert = false;
+      modal.setAttribute("aria-hidden","false");
+      const pwd = $("#deleteAccountPassword");
+      if (pwd) pwd.value = "";
+      const chk = $("#deleteAccountConfirm");
+      if (chk) chk.checked = false;
+      const err = $("#delAccountError");
+      if (err) { err.hidden = true; err.textContent = ""; }
+      requestAnimationFrame(() => { if (pwd) pwd.focus(); });
+    }
+    function closeDeleteAccountModal() {
+      const modal = $("#deleteAccountModal");
+      if (!modal || !modal.classList.contains("is-open")) return;
+      modal.classList.remove("is-open");
+      modal.inert = true;
+      modal.setAttribute("aria-hidden","true");
+      if (modalReturnFocus && typeof modalReturnFocus.focus === "function") {
+        modalReturnFocus.focus({ preventScroll:true });
+      }
+    }
+    let privacyPolicyLoaded = false;
+    async function openPrivacyModal() {
+      const modal = $("#privacyModal");
+      if (!modal) return;
+      modalReturnFocus = document.activeElement;
+      modal.classList.add("is-open");
+      modal.inert = false;
+      modal.setAttribute("aria-hidden","false");
+      const content = $("#privacyModalContent");
+      if (content && !privacyPolicyLoaded) {
+        content.innerHTML = '<div style="text-align:center;padding:24px;color:var(--dim)">Loading privacy disclosures...</div>';
+        try {
+          const data = await apiJson("GET","/privacy/policy");
+          privacyPolicyLoaded = true;
+          let html = '<div style="display:grid;gap:14px">';
+          if (data.categories) {
+            html += '<div><b style="color:var(--ink)">Data Categories Collected:</b><ul style="margin:6px 0 0 18px;padding:0">';
+            data.categories.forEach(c => { html += `<li><b>${esc(c.name)}:</b> ${esc(c.description)}</li>`; });
+            html += '</ul></div>';
+          }
+          if (data.purposes) {
+            html += '<div><b style="color:var(--ink)">Purposes of Processing:</b><ul style="margin:6px 0 0 18px;padding:0">';
+            data.purposes.forEach(p => { html += `<li>${esc(p)}</li>`; });
+            html += '</ul></div>';
+          }
+          if (data.governance_controls) {
+            html += '<div><b style="color:var(--ink)">Governance &amp; Privacy Controls:</b><ul style="margin:6px 0 0 18px;padding:0">';
+            data.governance_controls.forEach(g => { html += `<li>${esc(g)}</li>`; });
+            html += '</ul></div>';
+          }
+          if (data.retention_policy) {
+            html += `<div style="background:var(--surface);padding:8px 12px;border-radius:4px;border:1px solid var(--line-soft)"><b style="color:var(--ink)">Retention Policy:</b> ${esc(data.retention_policy)}</div>`;
+          }
+          html += '</div>';
+          content.innerHTML = html;
+        } catch (err) {
+          content.innerHTML = `<p style="color:var(--red)">Failed to load privacy notice: ${esc(err.message)}</p>`;
         }
-        lines.push(remaining);
-        return lines;
-      };
-      const stats = metrics();
-      const lines = ["INDIA OPERATIONS / FICTIONAL DEMONSTRATION",`Prepared ${new Date().toISOString().slice(0,10)} | Last ${ui.analyticsDays} days`,"",
-        `Active training incidents: ${stats.active} | Resource pressure: ${stats.conflicts} pools`,
-        `Current mean pool utilization: ${stats.utilization}% | Mean sample response: ${stats.response} min`,"",
-        "Not a live incident report. No operational or clinical recommendations are implied.","",
-      ];
-      exportData().forEach((sheet) => {
-        lines.push(sheet.name.toUpperCase(),sheet.headers.join(" | "),"");
-        sheet.rows.forEach((row) => lines.push(...wrap(row.join(" | "))));
-        lines.push("","");
+      }
+      requestAnimationFrame(() => {
+        const closeBtn = modal.querySelector("[data-close-privacy-modal]");
+        if (closeBtn) closeBtn.focus();
       });
-      const flattened = lines.flatMap(wrap), pages = [];
-      for (let index = 0; index < flattened.length; index += 43) pages.push(flattened.slice(index,index+43));
-      const objects = ["<< /Type /Catalog /Pages 2 0 R >>","","<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>","<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"];
-      objects[1] = `<< /Type /Pages /Count ${pages.length} /Kids [${pages.map((_,index) => `${5+index*2} 0 R`).join(" ")}] >>`;
-      const pdfText = (text) => ascii(text).replace(/([\\()])/g,"\\$1");
-      pages.forEach((page,index) => {
-        const pageId = 5+index*2, streamId = pageId+1;
-        const commands = `BT /F2 22 Tf 40 790 Td (ResQSync) Tj ET\nBT /F1 9 Tf 40 756 Td 15 TL ${page.map((line) => `(${pdfText(line)}) Tj T*`).join("\n")} ET\nBT /F1 8 Tf 40 36 Td (Local demo only / Page ${index+1} of ${pages.length}) Tj ET\n`;
-        objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${streamId} 0 R >>`);
-        objects.push(`<< /Length ${commands.length} >>\nstream\n${commands}endstream`);
-      });
-      let pdf = "%PDF-1.4\n%ResQSync\n";
-      const offsets = [0];
-      objects.forEach((object,index) => { offsets.push(pdf.length); pdf += `${index+1} 0 obj\n${object}\nendobj\n`; });
-      const xref = pdf.length;
-      pdf += `xref\n0 ${objects.length+1}\n0000000000 65535 f \n${offsets.slice(1).map((offset) => `${String(offset).padStart(10,"0")} 00000 n `).join("\n")}\ntrailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
-      downloadFile(new Blob([pdf],{ type:"application/pdf" }),"ResQSync-India-demo-report.pdf");
-      showToast("PDF report download requested. It contains fictional and locally created demo records.");
+    }
+    function closePrivacyModal() {
+      const modal = $("#privacyModal");
+      if (!modal || !modal.classList.contains("is-open")) return;
+      modal.classList.remove("is-open");
+      modal.inert = true;
+      modal.setAttribute("aria-hidden","true");
+      if (modalReturnFocus && typeof modalReturnFocus.focus === "function") {
+        modalReturnFocus.focus({ preventScroll:true });
+      }
     }
 
     function handleWorkspaceAction(event) {
@@ -812,6 +938,9 @@ export function initializeArchive() {
       if (target.closest("[data-hide-crisis]")) { ui.selectedCrisis = null; renderWorkspace("crises"); return true; }
       const crisisTab = target.closest("[data-crisis-tab]");
       if (crisisTab) { ui.crisisTab = crisisTab.dataset.crisisTab; renderWorkspace("crises"); return true; }
+      const mapCrisis = target.closest("[data-map-open-crisis]");
+      if (mapCrisis) { ui.selectedCrisis = mapCrisis.dataset.mapOpenCrisis; ui.crisisTab = "list"; renderWorkspace("crises"); return true; }
+      if (target.closest("[data-refresh-admin-outbox]")) { apiJson("GET","/admin/outbox").then((res)=>{ db.adminOutbox = res.messages || []; renderWorkspace("users"); }).catch(()=>{}); return true; }
       const resourceDetailButton = target.closest("[data-resource-detail]");
       if (resourceDetailButton) { ui.selectedResource = resourceDetailButton.dataset.resourceDetail; renderWorkspace("resources"); return true; }
       if (target.closest("[data-hide-resource]")) { ui.selectedResource = null; renderWorkspace("resources"); return true; }
@@ -820,98 +949,138 @@ export function initializeArchive() {
       const maintenance = target.closest("[data-maintenance]");
       if (maintenance) {
         if (!requireRole("resource")) return true;
-        const resource = resourceById(maintenance.dataset.maintenance);
-        if (!resource) return true;
-        if (!resource.maintenance && used(resource) > 0) { showToast("Release current assignments before putting this pool into maintenance."); return true; }
-        resource.maintenance = !resource.maintenance;
-        const text = resource.maintenance ? "Pool placed in maintenance; capacity unavailable." : "Maintenance cleared; pool returned to available inventory.";
-        resource.maintenanceLog.unshift({ at:new Date().toISOString(),actor:actorNames[ui.role],text });
-        resource.history.unshift({ at:new Date().toISOString(),actor:actorNames[ui.role],text });
-        record("Maintenance status changed",`${resource.name}: ${text}`);
-        notify(`${resource.name}: ${text}`);
-        finishChange(text);
+        mutate(apiJson("POST",`/resources/${enc(maintenance.dataset.maintenance)}/maintenance`),(result) => result.message);
         return true;
       }
       const release = target.closest("[data-release]");
       if (release) {
         if (!requireRole("allocate")) return true;
-        const resource = resourceById(release.dataset.release);
-        if (!resource) return true;
-        const amount = releaseCapacity(resource,release.dataset.releaseCrisis);
-        record("Assignment released",`${amount} ${resource.unit} returned to ${resource.name}.`);
-        notify(`${resource.name}: ${amount} ${resource.unit} returned to the available pool.`);
-        finishChange("Assignment released. Inventory and the crisis timeline have been updated.");
+        mutate(apiJson("POST",`/resources/${enc(release.dataset.release)}/release`,{ crisisId:release.dataset.releaseCrisis }),"Assignment released. Inventory and the crisis timeline have been updated.");
         return true;
       }
       const approve = target.closest("[data-approve-pool]");
       if (approve) {
         if (!requireRole("approve")) return true;
-        const resource = resourceById(approve.dataset.approvePool);
-        if (!resource) return true;
-        const plan = recommendation(resource).filter((request) => request.allocation > 0);
-        if (!plan.length) { showToast("No available capacity. Arrange backfill or release existing assignments first."); return true; }
-        const summary = [];
-        plan.forEach((request) => {
-          if (assignCapacity(resource,request.crisis,request.allocation,`Priority score ${request.score}; recommendation approved.`)) summary.push(`${request.crisis.city}: ${request.allocation} ${resource.unit}`);
-        });
-        const text = `${resource.name} / ${summary.join("; ")}. Unmet requests remain visible.`;
-        db.decisions.unshift({ id:uid("D"),at:new Date().toISOString(),actor:actorNames[ui.role],type:"Recommendation approved",text });
-        record("Resource recommendation approved",text);
-        notify(`Commander approval recorded locally: ${text}`);
-        finishChange("Recommendation approved in the demo. No units or external stakeholders were notified.");
+        mutate(apiJson("POST",`/resources/${enc(approve.dataset.approvePool)}/approve`),"Recommendation approved and recorded. Inventory and incident timelines were updated.");
         return true;
       }
-      if (target.closest("[data-recalculate]")) { renderWorkspace("conflicts"); showToast("Recommendations recalculated from current availability and open requests."); return true; }
+      if (target.closest("[data-recalculate]")) { refreshAll().then(() => showToast("Recommendations recalculated from current availability and open requests.")).catch((error) => { if (!error.handled) showToast(error.message); }); return true; }
       const negotiation = target.closest("[data-agree-negotiation]");
       if (negotiation) {
         if (!requireRole("approve")) return true;
-        const entry = db.negotiations.find((item) => item.id === negotiation.dataset.agreeNegotiation);
-        if (entry) {
-          entry.status = "resolved";
-          entry.agreedBy = actorNames[ui.role];
-          record("Compromise agreement recorded",entry.proposal);
-          notify(`Local agreement: ${entry.proposal}. Resource assignment is still a separate action.`);
-          finishChange("Agreement recorded. This does not automatically move any resource.");
-        }
+        mutate(apiJson("POST",`/negotiations/${enc(negotiation.dataset.agreeNegotiation)}/agree`),"Agreement recorded. This does not automatically move any resource.");
         return true;
       }
       const communicationTab = target.closest("[data-communication-tab]");
       if (communicationTab) { ui.communicationTab = communicationTab.dataset.communicationTab; renderWorkspace("collaboration"); return true; }
-      if (target.closest("[data-mark-notifications]")) { db.notifications.forEach((notice) => notice.read = true); saveDb(); renderWorkspace("collaboration"); showToast("Local notification records marked as read."); return true; }
+      if (target.closest("[data-mark-notifications]")) { mutate(apiJson("POST","/notifications/read"),"All notices marked as read."); return true; }
       const attachment = target.closest("[data-download-attachment]");
-      if (attachment) {
-        const file = attachmentsInSession.get(attachment.dataset.downloadAttachment);
-        if (file) downloadFile(file,file.name); else showToast("That file is not available in this session. Reattach it to download.");
-        return true;
-      }
+      if (attachment) { downloadAttachment(attachment.dataset.downloadAttachment); return true; }
       const exportButton = target.closest("[data-export]");
-      if (exportButton) { if (exportButton.dataset.export === "pdf") exportPdf(); else exportExcel(); return true; }
+      if (exportButton) { exportReport(exportButton.dataset.export === "pdf" ? "pdf" : "excel"); return true; }
+      if (target.closest("[data-retry-analytics]")) { db.analyticsError = null; renderWorkspace("analytics"); return true; }
       if (target.closest("[data-save-simulation]")) {
         if (!requireRole("save") || !ui.simulation) return true;
-        const simulation = { ...ui.simulation,id:uid("S"),at:new Date().toISOString(),actor:actorNames[ui.role] };
-        db.simulations.unshift(simulation);
-        db.simulations = db.simulations.slice(0,20);
-        record("Scenario saved",`${simulation.resourceName}: ${simulation.covered} of ${simulation.demand} requested units proposed.`);
-        finishChange("Simulation saved with its assumptions. Inventory was not changed.");
+        const { resourceId,capacity,cost,weight } = ui.simulation;
+        mutate(apiJson("POST","/simulations",{ resourceId,capacity,cost,weight }),"Simulation saved with its assumptions. Inventory was not changed.");
         return true;
       }
       if (target.closest("[data-simulation-conflict]")) { if (ui.simulation) ui.conflictResource = ui.simulation.resourceId; openPanel("conflicts"); return true; }
+      if (target.closest("[data-dismiss-credential]")) { ui.credential = null; renderWorkspace("users"); return true; }
+      const userStatus = target.closest("[data-user-status]");
+      if (userStatus) {
+        if (!requireRole("users")) return true;
+        mutate(apiJson("PATCH",`/users/${enc(userStatus.dataset.userStatus)}`,{ status:userStatus.dataset.next }),"Account updated. Any open sessions for that person were ended.");
+        return true;
+      }
+      const userReset = target.closest("[data-user-reset]");
+      if (userReset) {
+        if (!requireRole("users")) return true;
+        mutate(apiJson("PATCH",`/users/${enc(userReset.dataset.userReset)}`,{ reset_password:true }),"Password reset. Share the temporary password with the person securely.",(result) => {
+          const person = db.users.find((item) => String(item.id) === String(userReset.dataset.userReset));
+          ui.credential = { name:person?.name || "the user",email:person?.email || "",password:result.temporaryPassword };
+        });
+        return true;
+      }
+      const userAnon = target.closest("[data-user-anonymise]");
+      if (userAnon) {
+        if (!requireRole("users")) return true;
+        const targetId = userAnon.dataset.userAnonymise;
+        const targetPerson = db.users.find((item) => String(item.id) === String(targetId));
+        const confirmMsg = `Are you sure you want to permanently anonymise "${targetPerson?.name || 'this user'}"? All profile PII and associated emergency requests will be scrubbed, and active sessions revoked. The audit trail remains intact.`;
+        if (confirm(confirmMsg)) {
+          mutate(apiJson("POST",`/users/${enc(targetId)}/anonymise`),"User has been anonymised on privacy erasure request.");
+        }
+        return true;
+      }
+      const runRet = target.closest("[data-run-retention-pass]");
+      if (runRet) {
+        if (!requireRole("users")) return true;
+        apiJson("POST","/admin/privacy/retention-run")
+          .then((res) => { showToast(res.message || "Data retention cleanup executed."); refreshAll(); })
+          .catch((err) => { showToast(err.message); });
+        return true;
+      }
       const reset = target.closest("[data-reset-demo]");
       if (reset) {
         if (!requireRole("users")) return true;
         if (reset.dataset.confirmed !== "yes") {
           reset.dataset.confirmed = "yes";
-          reset.textContent = "Click again to reset all demo changes";
-          setTimeout(() => { if (reset.isConnected) { reset.dataset.confirmed = ""; reset.textContent = "Reset demo data"; } },6000);
+          reset.textContent = "Click again to reset all sample data";
+          setTimeout(() => { if (reset.isConnected) { reset.dataset.confirmed = ""; reset.textContent = "Reset sample data"; } },6000);
         } else {
-          db = seedWorkspace();
-          ui.selectedCrisis = "C-MUM"; ui.selectedResource = null; ui.simulation = null;
-          attachmentsInSession.clear();
-          saveDb(); renderWorkspace(ui.module); reset.dataset.confirmed = ""; reset.textContent = "Reset demo data";
-          showToast("The original fictional India dataset has been restored.");
+          reset.dataset.confirmed = ""; reset.textContent = "Reset sample data";
+          mutate(apiJson("POST","/admin/reset-demo"),"The original sample dataset has been restored. User accounts were kept.",() => { ui.selectedCrisis = "C-MUM"; ui.selectedResource = null; ui.simulation = null; });
         }
         return true;
       }
+      const sendOtp = target.closest("[data-send-phone-otp]");
+      if (sendOtp) {
+        apiJson("POST","/me/phone/send-otp").then((res) => {
+          showToast(res.message || "Verification code sent.");
+          if (res.otp) {
+            const input = $("#phoneOtpInput");
+            if (input) input.value = res.otp;
+            showToast(`Verification code sent (Test OTP: ${res.otp})`);
+          }
+        }).catch((err) => {
+          showToast(err.message || "Failed to send verification code.");
+        });
+        return true;
+      }
+      const verifyOtp = target.closest("[data-verify-phone-otp]");
+      if (verifyOtp) {
+        const input = $("#phoneOtpInput");
+        const code = (input ? input.value : "").trim();
+        if (!code || code.length !== 6) {
+          showToast("Enter the 6-digit verification code.");
+          return true;
+        }
+        apiJson("POST","/me/phone/verify-otp",{ code }).then(async (res) => {
+          showToast(res.message || "Phone verified successfully!");
+          if (db.me) db.me.phoneVerified = true;
+          if (session && session.user) session.user.phoneVerified = true;
+          await refreshAll();
+        }).catch((err) => {
+          showToast(err.message || "Verification failed. Check the code.");
+        });
+        return true;
+      }
+      if (target.closest("[data-refresh-my-outbox]")) {
+        loadMyOutbox().then(() => renderWorkspace("collaboration"));
+        return true;
+      }
+      if (target.closest("[data-refresh-admin-outbox]")) {
+        loadAdminOutbox().then(() => renderWorkspace("users"));
+        return true;
+      }
+      if (target.closest("[data-download-my-data]")) { downloadMyData(); return true; }
+      if (target.closest("[data-open-delete-account]")) { openDeleteAccountModal(); return true; }
+      if (target.closest("[data-close-delete-modal]")) { closeDeleteAccountModal(); return true; }
+      if (target.closest("[data-open-privacy]")) { openPrivacyModal(); return true; }
+      if (target.closest("[data-close-privacy-modal]")) { closePrivacyModal(); return true; }
+      if (target === $("#deleteAccountModal")) { closeDeleteAccountModal(); return true; }
+      if (target === $("#privacyModal")) { closePrivacyModal(); return true; }
       if (target.closest("[data-home]")) { event.preventDefault(); closePanel(); return true; }
       return false;
     }
@@ -924,11 +1093,11 @@ export function initializeArchive() {
     });
     listen(document,"change",(event) => {
       const target = event.target;
-      if (target.id === "demoRole") { if (roleNames[target.value]) { ui.role = target.value; renderWorkspace(ui.module); showToast(`${roleNames[ui.role]} permissions preview. This is not authentication.`); } return; }
+      if (target.id === "demoRole") { target.value = ui.role; return; }
       if (target.id === "crisisFilter") { ui.crisisFilter = target.value; renderWorkspace("crises"); return; }
       if (target.id === "resourceFilter") { ui.resourceFilter = target.value; renderWorkspace("resources"); return; }
       if (target.id === "messageChannel") { ui.channel = target.value; renderWorkspace("collaboration"); return; }
-      if (target.id === "analyticsRange") { ui.analyticsDays = Number(target.value) === 7 ? 7 : 30; renderWorkspace("analytics"); return; }
+      if (target.id === "analyticsRange") { const days = Number(target.value); ui.analyticsDays = [7,30,60,90].includes(days) ? days : 30; db.analyticsError = null; renderWorkspace("analytics"); return; }
       if (target.id === "simulationPool") {
         const resource = resourceById(target.value);
         if (resource) { $("#simulationCapacity").value = available(resource); $("#simulationCost").value = resource.cost; }
@@ -938,52 +1107,38 @@ export function initializeArchive() {
         if (!requireRole("crisis")) return;
         const crisis = crisisById(target.dataset.crisisStatus);
         if (!crisis || !["active","escalating","resolved"].includes(target.value) || target.value === crisis.status) return;
-        crisis.status = target.value;
-        crisis.timeline.unshift({ at:new Date().toISOString(),actor:actorNames[ui.role],text:`Status changed to ${crisis.status}.` });
-        if (crisis.status === "resolved") db.resources.forEach((resource) => releaseCapacity(resource,crisis.id));
-        record("Crisis status updated",`${crisis.title}: ${crisis.status}.`);
-        notify(`${crisis.title} is now ${crisis.status}.`);
-        finishChange("Status and timeline updated. Resolving an incident releases its assignments.");
+        mutate(apiJson("PATCH",`/crises/${enc(crisis.id)}`,{ status:target.value }),"Status and timeline updated. Resolving an incident releases its assignments.",null,true);
         return;
       }
       if (target.dataset.crisisSeverity || target.dataset.crisisCategory) {
         if (!requireRole("crisis")) return;
         const crisis = crisisById(target.dataset.crisisSeverity || target.dataset.crisisCategory);
         if (!crisis) return;
-        let detail;
+        let patch;
         if (target.dataset.crisisSeverity) {
           const severity = integer(target.value,1,5);
           if (severity === null) return;
-          crisis.severity = severity;
-          detail = `Severity changed to ${severityNames[severity]}.`;
+          patch = { severity };
         } else {
           if (!["Flood","Fire","Medical","Landslide","Storm","Earthquake","Other"].includes(target.value)) return;
-          crisis.category = target.value;
-          detail = `Category changed to ${crisis.category}.`;
+          patch = { category:target.value };
         }
-        crisis.timeline.unshift({ at:new Date().toISOString(),actor:actorNames[ui.role],text:detail });
-        record("Crisis classification updated",`${crisis.title}: ${detail}`);
-        notify(`${crisis.title}: ${detail}`);
-        finishChange("Incident classification updated. Priority recommendations use the latest severity.");
+        mutate(apiJson("PATCH",`/crises/${enc(crisis.id)}`,patch),"Incident classification updated. Priority recommendations use the latest severity.",null,true);
         return;
       }
       if (target.dataset.userRole) {
         if (!requireRole("users") || !roleNames[target.value]) return;
-        const user = db.users.find((item) => item.id === target.dataset.userRole);
-        if (!user) return;
-        user.role = target.value;
-        record("Demo user role changed",`${user.name}: ${roleNames[user.role]}.`);
-        finishChange("Demo profile updated. Server authorization remains unconnected.");
+        mutate(apiJson("PATCH",`/users/${enc(target.dataset.userRole)}`,{ role:target.value }),"Role updated. Any open sessions for that person were ended so the new role applies at once.",null,true);
         return;
       }
       if (target.dataset.notificationPref) {
-        if (!requireRole("save")) return;
         const key = target.dataset.notificationPref;
-        if (["email","sms","push"].includes(key)) {
-          db.preferences[key] = target.checked;
-          record("Notification preference updated",`${key}: ${target.checked ? "enabled" : "disabled"} in the local configuration preview.`);
-          saveDb(); showToast("Preference recorded locally. No delivery provider is connected.");
+        if (key === "sms" && !db.me?.phoneVerified && target.checked) {
+          target.checked = false;
+          showToast("Phone verification is required before enabling SMS notifications.");
+          return;
         }
+        if (["email","sms","push"].includes(key)) mutate(apiJson("PUT","/me/preferences",{ ...db.preferences,[key]:target.checked }),"Notification preference saved.",null,true);
       }
     });
     listen(document,"submit",(event) => {
@@ -997,97 +1152,73 @@ export function initializeArchive() {
         if (!requireRole("crisis")) return;
         const severity = integer(get("severity"),1,5), population = integer(get("population"));
         const lat = Number(get("lat")), lng = Number(get("lng"));
-        if (!get("title") || !get("city") || !get("region") || severity === null || population === null || !Number.isFinite(lat) || !Number.isFinite(lng) || lat < 6 || lat > 37 || lng < 67 || lng > 98) { showToast("Provide a name, location, valid severity, and coordinates inside the demo footprint."); return; }
-        const at = new Date().toISOString(), crisis = { id:uid("C"),title:get("title").slice(0,90),city:get("city").slice(0,60),region:get("region").slice(0,60),lat,lng,category:get("category"),severity,status:get("status") === "escalating" ? "escalating" : "active",population,responseMinutes:null,createdAt:at,timeline:[{ at,actor:actorNames[ui.role],text:"Training incident created locally." }] };
-        db.crises.unshift(crisis); ui.selectedCrisis = crisis.id;
-        record("Training crisis created",`${crisis.title} / ${crisis.city}.`);
-        notify(`New training incident: ${crisis.title}.`);
-        finishChange("Training crisis created. It is not a live emergency alert.");
+        if (!get("title") || !get("city") || !get("region") || severity === null || population === null || !Number.isFinite(lat) || !Number.isFinite(lng) || lat < 6 || lat > 37 || lng < 67 || lng > 98) { showToast("Provide a name, location, valid severity, and coordinates inside India (latitude 6 to 37, longitude 67 to 98)."); return; }
+        mutate(apiJson("POST","/crises",{ title:get("title"),city:get("city"),region:get("region"),category:get("category"),severity,status:get("status") === "escalating" ? "escalating" : "active",population,lat,lng }),"Incident created and added to the shared picture.",(created) => { ui.selectedCrisis = created.id; });
       } else if (type === "resource") {
         if (!requireRole("resource")) return;
         const total = integer(get("total"),1), cost = integer(get("cost"),0,10000000);
-        if (total === null || cost === null || !get("name") || !get("unit") || !get("organization") || !get("capability") || !["Personnel","Equipment","Supplies","Facilities"].includes(get("type"))) { showToast("Check the capacity, cost, type, organization, and capability fields."); return; }
-        const at = new Date().toISOString();
-        const resource = { id:uid("R"),name:get("name").slice(0,80),type:get("type"),total,unit:get("unit").slice(0,30),cost,organization:get("organization").slice(0,70),capability:get("capability").slice(0,350),maintenance:false,allocations:[],history:[{ at,actor:actorNames[ui.role],text:"Inventory pool created locally." }],maintenanceLog:[] };
-        db.resources.push(resource); ui.selectedResource = resource.id;
-        record("Resource inventory created",`${resource.name}: ${total} ${resource.unit}.`);
-        finishChange("Resource pool added to the local inventory.");
+        if (total === null || cost === null || !get("name") || !get("unit") || !get("organization") || !get("capability")) { showToast("Check the capacity, cost, type, organization, and capability fields."); return; }
+        mutate(apiJson("POST","/resources",{ name:get("name"),type:get("type"),total,unit:get("unit"),cost,organization:get("organization"),capability:get("capability") }),"Resource pool added to the shared inventory.",(created) => { ui.selectedResource = created.id; });
+      } else if (type === "patchResource") {
+        if (!requireRole("resource")) return;
+        const resId = form.dataset.resourceId;
+        const total = integer(get("total"),1);
+        if (!resId || total === null) { showToast("Enter a valid capacity number."); return; }
+        mutate(apiJson("PATCH",`/resources/${enc(resId)}`,{ total }),"Resource capacity updated.");
+      } else if (type === "stockMovement") {
+        if (!requireRole("resource")) return;
+        const resId = form.dataset.resourceId;
+        const movementType = get("movementType");
+        const quantity = integer(get("quantity"),1);
+        const reason = get("reason");
+        if (!resId || !["stock_in","stock_out"].includes(movementType) || quantity === null || !reason) {
+          showToast("Select movement type, enter quantity and reason."); return;
+        }
+        mutate(apiJson("POST",`/resources/${enc(resId)}/stock-movement`,{ movementType, quantity, reason }),"Stock movement recorded.");
       } else if (type === "assign" || type === "override") {
         if (!requireRole(type === "override" ? "approve" : "allocate")) return;
-        const resource = resourceById(get("resourceId")), crisis = crisisById(get("crisisId")), quantity = integer(get("quantity"),1), reason = get("reason").slice(0,250);
-        const contested = resource && resourceRequests(resource.id).reduce((sum,request) => sum+request.quantity,0) > available(resource);
-        if (contested && !has("approve")) { showToast("This pool has competing or uncovered demand. A manager or admin must approve the allocation in Conflict Resolution."); return; }
-        if (!resource || !crisis || quantity === null || !reason || !assignCapacity(resource,crisis,quantity,reason)) { showToast("Assignment not made. Check available capacity, the active crisis, quantity, and rationale."); return; }
-        const text = `${resource.name}: ${quantity} ${resource.unit} to ${crisis.city}. ${reason}`;
-        if (type === "override" || contested) db.decisions.unshift({ id:uid("D"),at:new Date().toISOString(),actor:actorNames[ui.role],type:type === "override" ? "Manual override" : "Manual allocation under demand pressure",text });
-        record(type === "override" || contested ? "Manual allocation approved" : "Resource assigned",text);
-        notify(`Local assignment: ${text}`);
-        finishChange("Assignment recorded. Availability, requests, and the crisis timeline have been updated.");
+        const quantity = integer(get("quantity"),1);
+        if (!get("resourceId") || !get("crisisId") || quantity === null || !get("reason")) { showToast("Choose a pool and incident, and enter a quantity and a reason."); return; }
+        mutate(apiJson("POST","/allocations",{ resourceId:get("resourceId"),crisisId:get("crisisId"),quantity,reason:get("reason").slice(0,250),override:type === "override" }),(result) => result.message);
       } else if (type === "request") {
         if (!requireRole("allocate")) return;
-        const resource = resourceById(get("resourceId")), crisis = crisisById(get("crisisId")), quantity = integer(get("quantity"),1);
-        if (!resource || !crisis || crisis.status === "resolved" || quantity === null) { showToast("Choose a valid resource and active crisis, and enter a positive quantity."); return; }
-        const existing = db.requests.find((request) => request.resourceId === resource.id && request.crisisId === crisis.id);
-        if (existing && existing.quantity+quantity > 1000000) { showToast("Requested quantity exceeds the demo limit."); return; }
-        if (existing) existing.quantity += quantity;
-        else db.requests.push({ id:uid("Q"),resourceId:resource.id,crisisId:crisis.id,quantity });
-        record("Resource request added",`${crisis.title}: ${quantity} ${resource.unit} / ${resource.name}. ${get("reason")}`);
-        notify(`New competing request: ${resource.name} / ${crisis.city}.`);
-        finishChange("Request recorded. Resource pressure and recommendations have been recalculated.");
+        const quantity = integer(get("quantity"),1);
+        if (!get("resourceId") || !get("crisisId") || quantity === null) { showToast("Choose a valid resource and active crisis, and enter a positive quantity."); return; }
+        mutate(apiJson("POST","/demands",{ resourceId:get("resourceId"),crisisId:get("crisisId"),quantity,reason:get("reason") }),"Request recorded. Resource pressure and recommendations have been recalculated.");
       } else if (type === "negotiation") {
         if (!requireRole("allocate")) return;
-        const resource = resourceById(get("resourceId"));
-        if (!resource || get("proposal").length < 5) return;
-        db.negotiations.unshift({ id:uid("G"),resourceId:resource.id,proposal:get("proposal").slice(0,350),at:new Date().toISOString(),actor:actorNames[ui.role],status:"pending" });
-        record("Negotiation proposal recorded",`${resource.name}: ${get("proposal")}`);
-        notify(`Local compromise proposal recorded for ${resource.name}.`);
-        finishChange("Proposal recorded for a manager or admin to review. No resources moved.");
+        if (!get("resourceId") || get("proposal").length < 5) return;
+        mutate(apiJson("POST","/negotiations",{ resourceId:get("resourceId"),proposal:get("proposal").slice(0,350) }),"Proposal recorded for a manager or admin to review. No resources moved.");
       } else if (type === "user") {
         if (!requireRole("users") || !roleNames[get("role")]) return;
-        if (!get("name") || !get("organization")) { showToast("Provide a demo name and organization."); return; }
-        if (db.users.some((user) => user.email.toLowerCase() === get("email").toLowerCase())) { showToast("A demo profile already exists with that email."); return; }
-        db.users.push({ id:uid("U"),name:get("name").slice(0,65),email:get("email").slice(0,120),organization:get("organization").slice(0,75),role:get("role"),status:"Local invite / unsent" });
-        record("Local invitation prepared",`${get("name")} / ${get("organization")} / ${roleNames[get("role")]}. No email sent.`);
-        finishChange("Local invitation record prepared. No authentication account or email was created.");
+        if (!get("name") || !get("organization")) { showToast("Provide a name and organization."); return; }
+        mutate(apiJson("POST","/users",{ name:get("name"),email:get("email"),organization:get("organization"),role:get("role") }),"Account created. Copy the temporary password below.",(result) => { ui.credential = { name:result.user.name,email:result.user.email,password:result.temporaryPassword }; });
+      } else if (type === "password") {
+        mutate(apiJson("POST","/auth/change-password",{ current:get("current"),new:values.get("next") }),"Password updated. Your other sessions were signed out.");
+        form.reset();
       } else if (type === "message") {
         if (!requireRole("message") || get("text").length < 2) return;
-        const at = new Date().toISOString(), text = get("text").slice(0,1200);
-        db.messages.push({ id:uid("M"),channel:ui.channel,author:actorNames[ui.role],text,at });
-        crisisById(ui.channel)?.timeline.unshift({ at,actor:actorNames[ui.role],text:"A local comment was added to the incident thread." });
-        record("Local message posted",`${ui.channel}: ${text.slice(0,100)}`);
-        notify(`New local comment in ${ui.channel === "network" ? "network coordination" : ui.channel === "decisions" ? "decision discussion" : crisisById(ui.channel)?.title || "the thread"}.`);
-        finishChange("Message added locally. No network stakeholders were contacted.");
+        mutate(apiJson("POST","/messages",{ channel:ui.channel,text:get("text").slice(0,1200) }),"Message posted.");
       } else if (type === "attachment") {
         if (!requireRole("message")) return;
         const file = values.get("file");
         if (!(file instanceof File) || !file.size || file.size > 5*1024*1024 || !["pdf","csv","txt","json","png","jpg","jpeg"].includes(file.name.toLowerCase().split(".").pop())) { showToast("Choose a supported, non-empty document up to 5 MB."); return; }
-        const id = uid("F"), at = new Date().toISOString();
-        attachmentsInSession.set(id,file);
-        db.attachments.push({ id,name:file.name,size:file.size,type:file.type,at,author:actorNames[ui.role],channel:ui.channel });
-        record("Session document attached",`${file.name} / ${ui.channel}. File content stays in this session.`);
-        finishChange("Document attached to the local thread. Nothing was uploaded.");
+        const payload = new FormData();
+        payload.append("channel",ui.channel);
+        payload.append("file",file);
+        mutate(apiJson("POST","/attachments",payload),"Document attached to the thread.");
       } else if (type === "simulation") {
-        const resource = resourceById(get("resourceId")), capacity = integer(get("capacity")), cost = integer(get("cost"),0,10000000), weight = integer(get("weight"),20,90);
-        if (!resource || capacity === null || cost === null || weight === null) { showToast("Check the scenario pool, capacity, cost, and priority weighting."); return; }
-        const plan = recommendation(resource,capacity,weight);
-        ui.simulation = { resourceId:resource.id,resourceName:resource.name,capacity,cost,weight,demand:plan.reduce((sum,item) => sum+item.quantity,0),covered:plan.reduce((sum,item) => sum+item.allocation,0),rows:plan.map((item) => ({ title:item.crisis.title,city:item.crisis.city,quantity:item.quantity,allocation:item.allocation,score:item.score })) };
-        $("#simulationResult").innerHTML = simulationResult(ui.simulation);
-        showToast("Scenario calculated. No inventory or requests were changed.");
+        const capacity = integer(get("capacity")), cost = integer(get("cost"),0,10000000), weight = integer(get("weight"),20,90);
+        if (!get("resourceId") || capacity === null || cost === null || weight === null) { showToast("Check the scenario pool, capacity, cost, and priority weighting."); return; }
+        apiJson("POST","/simulations/run",{ resourceId:get("resourceId"),capacity,cost,weight }).then((result) => {
+          ui.simulation = result;
+          $("#simulationResult").innerHTML = simulationResult(ui.simulation);
+          showToast("Scenario calculated. No inventory or requests were changed.");
+        }).catch((error) => { if (!error.handled) showToast(error.message); });
       }
     });
     listen(window,"storage",(event) => {
-      if (event.key === appearanceKey) {
-        if (event.newValue === "light" || event.newValue === "dark") setTheme(event.newValue,false);
-        return;
-      }
-      if (event.key !== storageKey || !event.newValue) return;
-      try {
-        const incoming = JSON.parse(event.newValue);
-        if (validWorkspace(incoming)) {
-          db = incoming;
-          if (panelOpen && panel.classList.contains("has-workspace")) { renderWorkspace(ui.module); showToast("Local demo updated from another same-browser tab."); }
-        }
-      } catch { /* A malformed external storage update is ignored. */ }
+      if (event.key === appearanceKey && (event.newValue === "light" || event.newValue === "dark")) setTheme(event.newValue,false);
     });
 
     if ("scrollRestoration" in history) history.scrollRestoration = "manual";
@@ -1488,7 +1619,7 @@ export function initializeArchive() {
     listen(document,"click", (event) => {
       const target = event.target;
       if (target.closest("[data-intro-skip]")) { finishIntro(); return; }
-      if (target.closest("[data-intro-workspace]")) { finishIntro(); if (session) openWorkspace(); return; }
+      if (target.closest("[data-intro-workspace]")) { finishIntro(); if (session) enterWorkspace(); return; }
       if (target.closest("[data-watch-intro]")) { startIntro(true); return; }
       if (target.closest("[data-theme-toggle]")) { event.preventDefault(); setTheme(currentTheme === "light" ? "dark" : "light"); return; }
       if (handleWorkspaceAction(event)) return;
@@ -1498,7 +1629,7 @@ export function initializeArchive() {
       if (panelTrigger) {
         event.preventDefault();
         const view = panelTrigger.dataset.panel;
-        if (moduleIds.includes(view)) { if (session) openWorkspace(); else openLogin(); return; }
+        if (moduleIds.includes(view)) { enterWorkspace(view); return; }
         openPanel(view);
         return;
       }
@@ -1536,6 +1667,10 @@ export function initializeArchive() {
         return;
       }
       if (event.key === "Escape") {
+        const delM = $("#deleteAccountModal");
+        if (delM && delM.classList.contains("is-open")) { closeDeleteAccountModal(); return; }
+        const privM = $("#privacyModal");
+        if (privM && privM.classList.contains("is-open")) { closePrivacyModal(); return; }
         if (body.classList.contains("finder-open")) { setFinder(false); return; }
         if (litOpen) closeShot();
         else if (panelOpen) closePanel();
@@ -1679,8 +1814,7 @@ export function initializeArchive() {
     });
     $("#avatar").src = "https://images.pexels.com/photos/5964983/pexels-photo-5964983.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=120&w=120";
 
-    // ---- Role workspaces: one shared store, a focused desk per role ----
-    const STORE_KEY="resqsync-store-v2", SESSION_KEY="resqsync-session-v2";
+    // ---- Accounts, live updates and the role desks ----
     const STATUS_ORDER=["opened","verified","assigned","enroute","resolved"];
     const STATUS_LABEL={opened:"Opened",verified:"Verified",assigned:"Assigned",enroute:"En route",resolved:"Resolved"};
     const ROLE_ICONS={seeker:'<path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.4h.01"/>',manager:'<path d="M13 2.5 4.5 13.5H12l-1 8 8.5-11H12l1-8Z"/>',coordinator:'<path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4v-9Z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/>',admin:'<path d="M12 3 20 6v5.5c0 4.4-3 7.8-8 9.5-5-1.7-8-5.1-8-9.5V6l8-3Z"/>',viewer:'<circle cx="12" cy="12" r="3.2"/><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>'};
@@ -1689,47 +1823,289 @@ export function initializeArchive() {
       manager:{label:"Crisis manager",blurb:"Verify incoming requests and assign the right resource to each one.",tabs:["Incoming requests","Incident board"]},
       coordinator:{label:"Resource coordinator",blurb:"Hold the inventory, confirm dispatches, keep stock honest.",tabs:["Dispatch queue","Inventory"]},
       admin:{label:"Admin",blurb:"Full oversight of every request, resource and decision in the network.",tabs:["Overview","Audit trail"]},
+      viewer:{label:"Viewer",blurb:"Read-only access to incidents, resources and reports.",tabs:[]},
     };
-    function seedStore(){
-      const t=(m)=>new Date(Date.now()-m*60000).toISOString();
-      return { seq:44,
-        resources:[
-          {id:"R1",name:"Swiftwater rescue boat",type:"Equipment",total:6,assigned:2},
-          {id:"R2",name:"ALS ambulance",type:"Equipment",total:8,assigned:5},
-          {id:"R3",name:"Relief kits",type:"Supplies",total:1200,assigned:260},
-          {id:"R4",name:"Medical oxygen cylinders",type:"Supplies",total:24,assigned:15},
-        ],
-        requests:[
-          {id:"RSQ-0041",name:"S. Iyer",address:"12 Marine Drive, Kochi",phone:"+91 98470 11223",brief:"Roof access needed, water rising fast around the house.",adults:3,children:2,photo:null,status:"enroute",createdAt:t(160),resource:"Swiftwater rescue boat",history:[{at:t(160),label:"Request opened"},{at:t(150),label:"Verified by crisis manager"},{at:t(142),label:"Boat assigned"},{at:t(131),label:"Dispatch confirmed"}]},
-          {id:"RSQ-0042",name:"A. Rahman",address:"Old City, Hyderabad",phone:"+91 90000 44556",brief:"Elderly patient needs an oxygen cylinder within the hour.",adults:2,children:0,photo:null,status:"assigned",createdAt:t(74),resource:"Medical oxygen cylinders",history:[{at:t(74),label:"Request opened"},{at:t(66),label:"Verified by crisis manager"},{at:t(58),label:"Oxygen assigned"}]},
-          {id:"RSQ-0043",name:"P. Das",address:"Riverside colony, Guwahati",phone:"+91 98640 77889",brief:"Family stranded on the first floor, need evacuation and dry rations.",adults:4,children:3,photo:null,status:"verified",createdAt:t(22),resource:null,history:[{at:t(22),label:"Request opened"},{at:t(14),label:"Verified by crisis manager"}]},
-        ],
-        audit:[{at:t(160),actor:"Help seeker",action:"Raised RSQ-0041"},{at:t(150),actor:"Crisis manager",action:"Verified RSQ-0041"},{at:t(142),actor:"Crisis manager",action:"Assigned Swiftwater rescue boat to RSQ-0041"},{at:t(131),actor:"Resource coordinator",action:"Confirmed dispatch for RSQ-0041"}],
-      };
-    }
-    let store;
-    try{ const raw=JSON.parse(localStorage.getItem(STORE_KEY)||"null"); store=(raw&&Array.isArray(raw.requests)&&Array.isArray(raw.resources))?raw:seedStore(); }catch{ store=seedStore(); }
-    function saveStore(){ try{ localStorage.setItem(STORE_KEY,JSON.stringify(store)); }catch{ /* session-only */ } }
-    let session=null;
-    try{ const savedSession=JSON.parse(localStorage.getItem(SESSION_KEY)||"null"); if(savedSession&&ROLES[savedSession.role]) session=savedSession; }catch{ session=null; }
-    function setSession(role){
-      session=role?{role}:null;
-      try{ session?localStorage.setItem(SESSION_KEY,JSON.stringify(session)):localStorage.removeItem(SESSION_KEY); }catch{ /* session-only */ }
+    const DESK_KEY={"help-seeker":"seeker","crisis-manager":"manager","resource-coordinator":"coordinator",admin:"admin",viewer:"viewer"};
+    const PLATFORM_ROLES=["admin","crisis-manager","resource-coordinator","viewer"];
+    let session=null;               // { user, role } once the server has confirmed who is signed in
+    let meta=null;                  // public server information (registration allowed? demo accounts?)
+    let desk={ requests:[],resources:[],incidents:[],audit:[],revision:0 };
+    const canUsePlatform=()=>Boolean(session&&PLATFORM_ROLES.includes(session.user.role));
+    const hasDesk=()=>Boolean(session&&session.role!=="viewer");
+    function setSession(user){
+      session=user?{user,role:DESK_KEY[user.role]||"viewer"}:null;
+      ui.role=user?user.role:"viewer";
       syncAuthUI();
     }
     const authBtn=$("#authBtn");
-    function syncAuthUI(){
-      if(authBtn){ authBtn.textContent=session?ROLES[session.role].label:"Login"; authBtn.classList.toggle("is-authed",Boolean(session)); authBtn.title=session?"Signed in — select to sign out":"Sign in to a role workspace"; }
-      const menuAuth=$(".menu-secondary [data-auth]"); if(menuAuth) menuAuth.textContent=session?"Sign out":"Sign in";
-      const chip=$("#wsRoleChip"); if(chip) chip.textContent=session?ROLES[session.role].label:"";
+    const I18N = {
+      en: {
+        lang_btn: "EN | हिंदी",
+        signin_overline: "Sign in",
+        signin_title: "Sign in to your workspace",
+        signin_sub: "Use the e-mail and password for your ResQSync account. Your role decides which desk opens and what you can change.",
+        register_title: "Create a help-seeker account",
+        register_sub: "For people who need help. You can raise requests and follow them until they are resolved. Staff accounts are created by an administrator.",
+        forgot_title: "Reset your password",
+        forgot_sub: "Enter the e-mail address on your account. If registered, we will send reset instructions.",
+        reset_title: "Choose a new password",
+        reset_sub: "Enter the reset token sent to your email and select a new secure password.",
+        signin_note: "Your account is stored on the ResQSync server. Sessions end when you sign out.",
+        signin_btn: "Sign in",
+        create_account_btn: "Create account",
+        already_account: "I already have an account",
+        need_help_account: "I need help: create an account",
+        send_reset: "Send reset instructions",
+        have_token: "I have a token",
+        back_signin: "Back to sign in",
+        set_new_pwd: "Set new password",
+        email_label: "E-mail",
+        password_label: "Password",
+        name_label: "Full name",
+        phone_label: "Phone (optional)",
+        demo_accounts: "Demo accounts",
+        forgot_password: "Forgot password?",
+        desk_eyebrow: "ROLE WORKSPACE",
+        seeker_title: "Help Seeker Desk",
+        seeker_blurb: "Raise emergency requests for food, rescue, shelter, medical help, or evacuation. Responders coordinate immediately.",
+        raise_tab: "Raise request",
+        track_tab: "Track my requests",
+        your_name: "Your name",
+        phone_number: "Phone number",
+        address: "Address",
+        what_help: "What help do you need?",
+        brief_placeholder: "Briefly describe the situation",
+        adults_count: "Adults (approx.)",
+        children_count: "Children (approx.)",
+        photo_verification: "Photo for verification (optional, up to 2 MB)",
+        raise_submit: "Raise request",
+        emergency_notice: "Your request reaches crisis managers immediately. In a life-threatening emergency, call 112 first.",
+        no_requests_yet: "No requests yet. Raise one from the first tab.",
+        post_update: "Post update",
+        cancel_req: "Cancel request",
+        add_update_placeholder: "Add an update or note...",
+        dup_warning_title: "Possible duplicate request:",
+        dup_warning_desc: "Matches recent activity. Verify before dispatch."
+      },
+      hi: {
+        lang_btn: "हिंदी | EN",
+        signin_overline: "साइन इन",
+        signin_title: "अपने कार्यक्षेत्र में साइन इन करें",
+        signin_sub: "अपने ResQSync खाते के ईमेल और पासवर्ड का उपयोग करें। आपकी भूमिका तय करती है कि कौन सा डेस्क खुलेगा।",
+        register_title: "सहायता-मांगने वाला खाता बनाएं",
+        register_sub: "उन लोगों के लिए जिन्हें सहायता की आवश्यकता है। आप अनुरोध दर्ज कर सकते हैं और समाधान तक देख सकते हैं।",
+        forgot_title: "पासवर्ड रीसेट करें",
+        forgot_sub: "अपने खाते का ईमेल पता दर्ज करें। हम रीसेट निर्देश भेजेंगे।",
+        reset_title: "नया पासवर्ड चुनें",
+        reset_sub: "ईमेल पर प्राप्त रीसेट टोकन और नया सुरक्षित पासवर्ड दर्ज करें।",
+        signin_note: "आपका खाता ResQSync सर्वर पर सुरक्षित है। साइन आउट करने पर सत्र समाप्त होता है।",
+        signin_btn: "साइन इन करें",
+        create_account_btn: "खाता बनाएं",
+        already_account: "मेरे पास पहले से खाता है",
+        need_help_account: "मुझे सहायता चाहिए: खाता बनाएं",
+        send_reset: "रीसेट निर्देश भेजें",
+        have_token: "मेरे पास टोकन है",
+        back_signin: "साइन इन पर वापस जाएं",
+        set_new_pwd: "नया पासवर्ड सेट करें",
+        email_label: "ई-मेल",
+        password_label: "पासवर्ड",
+        name_label: "पूरा नाम",
+        phone_label: "फ़ोन (वैकल्पिक)",
+        demo_accounts: "त्वरित डेमो खाते",
+        forgot_password: "पासवर्ड भूल गए?",
+        desk_eyebrow: "भूमिका कार्यक्षेत्र",
+        seeker_title: "सहायता अनुरोध डेस्क",
+        seeker_blurb: "राहत, बचाव, भोजन या चिकित्सा सहायता के लिए आपातकालीन अनुरोध दर्ज करें। राहत दल तुरंत समन्वय करते हैं।",
+        raise_tab: "सहायता मांगें",
+        track_tab: "मेरे अनुरोध ट्रैक करें",
+        your_name: "आपका नाम",
+        phone_number: "फ़ोन नंबर",
+        address: "पता (घर, गली, क्षेत्र, ज़िला)",
+        what_help: "आपको किस प्रकार की सहायता चाहिए?",
+        brief_placeholder: "स्थिति का संक्षेप में विवरण दें",
+        adults_count: "वयस्क (लगभग)",
+        children_count: "बच्चे (लगभग)",
+        photo_verification: "सत्यापन हेतु फ़ोटो (वैकल्पिक, अधिकतम 2 MB)",
+        raise_submit: "अनुरोध दर्ज करें",
+        emergency_notice: "आपका अनुरोध तुरंत आपदा प्रबंधकों तक पहुँचता है। जीवन-घातक स्थिति में पहले 112 पर कॉल करें।",
+        no_requests_yet: "अभी तक कोई अनुरोध नहीं है। पहले टैब से सहायता मांगें।",
+        post_update: "अपडेट भेजें",
+        cancel_req: "अनुरोध रद्द करें",
+        add_update_placeholder: "कोई नई जानकारी या संदेश जोड़ें...",
+        dup_warning_title: "संभावित डुप्लिकेट अनुरोध:",
+        dup_warning_desc: "हाल ही में दर्ज अनुरोध से मेल खाता है। प्रेषण से पहले पुष्टि करें।"
+      }
+    };
+    let currentLang = localStorage.getItem("resqsync_lang") || "en";
+    const t = (k) => (I18N[currentLang] && I18N[currentLang][k]) || (I18N.en && I18N.en[k]) || k;
+    function toggleLang() {
+      currentLang = currentLang === "en" ? "hi" : "en";
+      localStorage.setItem("resqsync_lang", currentLang);
+      syncAuthUI();
+      if (session && session.role === "seeker") renderRoleWorkspace();
+      if (body.classList.contains("login-open")) renderLogin();
     }
-    function openLogin(){
+    function trapFocus(container, event) {
+      if (event.key !== "Tab") return;
+      const focusables = Array.from(container.querySelectorAll("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")).filter((el) => !el.disabled && el.offsetParent !== null);
+      if (!focusables.length) return;
+      const first = focusables[0], last = focusables[focusables.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !container.contains(document.activeElement))) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault(); first.focus();
+      }
+    }
+    function syncAuthUI(){
+      if(authBtn){ authBtn.textContent=session?ROLES[session.role].label:"Login"; authBtn.classList.toggle("is-authed",Boolean(session)); authBtn.title=session?`Signed in as ${session.user.name} — select to sign out`:"Sign in to your workspace"; }
+      const menuAuth=$(".menu-secondary [data-auth]"); if(menuAuth) menuAuth.textContent=session?"Sign out":"Sign in";
+      const chip=$("#wsRoleChip"); if(chip) chip.textContent=session?session.user.name:"";
+      const deskBtn=$("#openDeskBtn"); if(deskBtn) deskBtn.hidden=!(session&&hasDesk()&&canUsePlatform());
+      const platformBtn=$("#openPlatformBtn"); if(platformBtn) platformBtn.hidden=!canUsePlatform();
+      $$("[data-lang-toggle]").forEach((b)=>{ b.textContent = currentLang === "hi" ? "हिंदी | EN" : "EN | हिंदी"; });
+    }
+
+    // ---- data loading ----
+    async function loadDesk(){ desk=await apiJson("GET","/desk"); knownRevision=Math.max(knownRevision,desk.revision||0); }
+    const platformVisible=()=>panelOpen&&panel.classList.contains("has-workspace");
+    const deskVisible=()=>{ const view=$('[data-view="workspace"]'); return panelOpen&&view&&!view.hidden; };
+    function renderVisible(){
+      if(platformVisible()) renderWorkspace(ui.module);
+      else if(deskVisible()) renderRoleWorkspace();
+      syncAuthUI();
+    }
+    async function loadEverything(){
+      const jobs=[loadDesk()];
+      if(canUsePlatform()) jobs.push(loadWorkspace());
+      await Promise.all(jobs);
+    }
+    async function refreshAll(){
+      if(!session) return;
+      await loadEverything();
+      renderVisible();
+    }
+
+    // ---- live updates (Server-Sent Events) ----
+    let eventSource=null, refreshTimer=0, pendingRender=false;
+    function isEditing(){
+      const root=platformVisible()?$("#workspaceContent"):$("#roleWorkspace");
+      if(!root) return false;
+      const active=document.activeElement;
+      if(active&&root.contains(active)&&/^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)&&active.type!=="checkbox") return true;
+      return [...root.querySelectorAll("form input:not([type=checkbox]):not([type=hidden]), form textarea")].some((field)=>field.type==="file"?Boolean(field.files&&field.files.length):field.value!==field.defaultValue);
+    }
+    async function remoteRefresh(){
+      if(!session) return;
+      try{ await loadEverything(); }catch{ return; }
+      if(isEditing()) pendingRender=true; else renderVisible();
+    }
+    listen(document,"focusout",()=>{
+      if(!pendingRender) return;
+      setTimeout(()=>{ if(pendingRender&&!isEditing()){ pendingRender=false; renderVisible(); } },200);
+    });
+    function connectEvents(){
+      disconnectEvents();
+      if(!session||typeof EventSource==="undefined") return;
+      eventSource=new EventSource("/api/events");
+      listen(eventSource,"change",(event)=>{
+        let data={}; try{ data=JSON.parse(event.data); }catch{ /* refresh anyway */ }
+        if(data.revision&&data.revision<=knownRevision) return;
+        clearTimeout(refreshTimer);
+        refreshTimer=setTimeout(remoteRefresh,250);
+      });
+      eventSource.onerror=()=>{
+        if(eventSource&&eventSource.readyState===EventSource.CLOSED) apiJson("GET","/auth/me").catch((error)=>{ if(error.status===401) handleSessionLost(); });
+      };
+    }
+    function disconnectEvents(){ clearTimeout(refreshTimer); if(eventSource){ eventSource.close(); eventSource=null; } }
+    if (typeof onDispose === "function") onDispose(disconnectEvents); // React unmount: close the live-update stream
+
+    // ---- sign in / out ----
+    async function loadMeta(){ try{ meta=await apiJson("GET","/meta"); }catch{ meta=null; } }
+    async function bootSession(){
+      loadMeta();
+      try{
+        const data=await apiJson("GET","/auth/me");
+        setSession(data.user);
+        await refreshAll();
+        connectEvents();
+      }catch{ setSession(null); }
+    }
+    async function startSession(user){
+      setSession(user);
+      knownRevision=0; db=emptyWorkspace();
+      await refreshAll();
+      connectEvents();
+      closeLogin(false);
+      enterWorkspace();
+      showToast(`Signed in as ${user.name}.`);
+    }
+    function endSession(message){
+      disconnectEvents();
+      setSession(null);
+      db=emptyWorkspace(); desk={ requests:[],resources:[],incidents:[],audit:[],revision:0 };
+      knownRevision=0; ui.credential=null; ui.simulation=null;
+      closePanel();
+      if(message) showToast(message);
+    }
+    async function signOut(){
+      try{ await api("POST","/auth/logout"); }catch{ /* the cookie is cleared locally either way */ }
+      endSession("Signed out.");
+    }
+    function handleSessionLost(){
+      if(!session) return;
+      endSession("Your session has ended. Sign in again.");
+      openLogin();
+    }
+    function enterWorkspace(moduleId="overview"){
+      if(!session){ openLogin(); return; }
+      if(canUsePlatform()) openPanel(moduleId); else openWorkspace();
+    }
+    function openWorkspace(){
+      if(!session){ openLogin(); return; }
+      if(!hasDesk()){ enterWorkspace(); return; }
+      openPanel("workspace");
+      renderRoleWorkspace();
+    }
+
+    // ---- login dialog ----
+    let presetResetToken = "";
+    function renderLogin(mode){
+      const register=mode==="register";
+      const forgot=mode==="forgot";
+      const reset=mode==="reset";
+      const overline = $("#login .overline");
+      if(overline) overline.textContent = t("signin_overline");
+      if(forgot){
+        $("#loginTitle").textContent=t("forgot_title");
+        $(".login-sub").textContent=t("forgot_sub");
+      }else if(reset){
+        $("#loginTitle").textContent=t("reset_title");
+        $(".login-sub").textContent=t("reset_sub");
+      }else{
+        $("#loginTitle").textContent=register?t("register_title"):t("signin_title");
+        $(".login-sub").textContent=register?t("register_sub"):t("signin_sub");
+      }
+      const demo=meta&&meta.demo?`<details class="login-demo"><summary>${t("demo_accounts")}</summary><p>Sample accounts to try each role. Password for all: <code>${esc(meta.demo.password)}</code></p><div class="login-demo-list">${meta.demo.accounts.map((account)=>`<button type="button" class="text-action" data-demo-email="${esc(account.email)}" data-demo-password="${esc(meta.demo.password)}">${esc(account.name)} <small>${esc(roleNames[account.role]||account.role)}</small></button>`).join("")}</div></details>`:"";
+      const canRegister=!meta||meta.allowRegistration;
+      if(register){
+        $("#roleGrid").innerHTML=`<form id="registerForm" class="work-form login-form" novalidate><label>${t("name_label")}<input class="work-input" name="name" required minlength="2" maxlength="80" autocomplete="name"></label><label>${t("email_label")}<input class="work-input" name="email" type="email" required maxlength="254" autocomplete="username"></label><label>${t("phone_label")}<input class="work-input" name="phone" type="tel" maxlength="30" autocomplete="tel"></label><label>${t("password_label")}<input class="work-input" name="password" type="password" required minlength="10" maxlength="128" autocomplete="new-password"></label><p class="login-hint">At least 10 characters, with letters and a number or symbol.</p><p class="login-error" id="loginError" role="alert" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("create_account_btn")}</button><button class="work-btn" type="button" data-login-mode="signin">${t("already_account")}</button></div></form>`;
+      }else if(forgot){
+        $("#roleGrid").innerHTML=`<form id="forgotForm" class="work-form login-form" novalidate><label>${t("email_label")}<input class="work-input" name="email" type="email" required maxlength="254" autocomplete="username"></label><p class="login-error" id="loginError" role="alert" hidden></p><p class="login-hint" id="loginSuccess" style="color:var(--gold,#d4af37)" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("send_reset")}</button><button class="work-btn" type="button" data-login-mode="reset">${t("have_token")}</button><button class="work-btn" type="button" data-login-mode="signin">${t("back_signin")}</button></div></form>`;
+      }else if(reset){
+        $("#roleGrid").innerHTML=`<form id="resetForm" class="work-form login-form" novalidate><label>Reset token<input class="work-input" name="token" required maxlength="128" placeholder="Paste token from email" value="${esc(presetResetToken||"")}"></label><label>${t("password_label")}<input class="work-input" name="password" type="password" required minlength="10" maxlength="128" autocomplete="new-password"></label><p class="login-hint">At least 10 characters, with letters and a number or symbol.</p><p class="login-error" id="loginError" role="alert" hidden></p><p class="login-hint" id="loginSuccess" style="color:var(--gold,#d4af37)" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("set_new_pwd")}</button><button class="work-btn" type="button" data-login-mode="signin">${t("back_signin")}</button></div></form>`;
+      }else{
+        $("#roleGrid").innerHTML=`<form id="loginForm" class="work-form login-form" novalidate><label>${t("email_label")}<input class="work-input" name="email" type="email" required maxlength="254" autocomplete="username"></label><label>${t("password_label")}<input class="work-input" name="password" type="password" required maxlength="128" autocomplete="current-password"></label><div style="display:flex;justify-content:flex-end;margin-top:-4px;margin-bottom:8px"><button type="button" class="text-action" data-login-mode="forgot" style="font-size:12px">${t("forgot_password")}</button></div><p class="login-error" id="loginError" role="alert" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("signin_btn")}</button>${canRegister?`<button class="work-btn" type="button" data-login-mode="register">${t("need_help_account")}</button>`:""}</div>${demo}</form>`;
+      }
+      $(".login-note").textContent=t("signin_note");
+    }
+    function openLogin(mode="signin"){
       if(introActive) finishIntro({restoreFocus:false});
       const login=$("#login");
-      $("#roleGrid").innerHTML=Object.entries(ROLES).map(([key,role])=>`<button type="button" class="role-card" data-role="${key}"><span class="role-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ROLE_ICONS[key]}</svg></span><span class="role-card-text"><b>${esc(role.label)}</b><small>${esc(role.blurb)}</small></span><span class="role-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h8m0 0-3-3m3 3-3 3"/></svg></span></button>`).join("");
+      renderLogin(mode);
       login.classList.add("is-open"); login.inert=false; login.setAttribute("aria-hidden","false");
       body.classList.add("login-open");
-      requestAnimationFrame(()=>{ const first=$("#roleGrid .role-card"); if(first) first.focus(); });
+      requestAnimationFrame(()=>{ const first=$("#roleGrid input"); if(first) first.focus(); });
     }
     function closeLogin(focusBack=true){
       const login=$("#login"); if(!login.classList.contains("is-open")) return;
@@ -1737,135 +2113,253 @@ export function initializeArchive() {
       body.classList.remove("login-open");
       if(focusBack&&authBtn) authBtn.focus({preventScroll:true});
     }
-    function openWorkspace(){
-      if(!session){ openLogin(); return; }
-      openPanel("workspace");
-      renderRoleWorkspace();
-    }
-    function findRequest(id){ return store.requests.find((r)=>r.id===id); }
-    function pushStatus(req,label){ req.history.push({at:new Date().toISOString(),label}); }
+    listen(document,"submit",async(event)=>{
+      const form=event.target;
+      if(form.id==="deleteAccountForm"){
+        event.preventDefault();
+        const pwdInput=$("#deleteAccountPassword");
+        const confirmInput=$("#deleteAccountConfirm");
+        const errBox=$("#delAccountError");
+        const submitBtn=form.querySelector("[type=submit]");
+        if(errBox){ errBox.hidden=true; errBox.textContent=""; }
+        const pwd=(pwdInput?pwdInput.value:"").trim();
+        if(!pwd){ if(errBox){ errBox.textContent="Please enter your password."; errBox.hidden=false; } return; }
+        if(!confirmInput||!confirmInput.checked){ if(errBox){ errBox.textContent="Please check the confirmation box."; errBox.hidden=false; } return; }
+        submitBtn.disabled=true;
+        try{
+          const res=await apiJson("POST","/me/delete-account",{password:pwd});
+          closeDeleteAccountModal();
+          endSession(res.message||"Your account and data have been erased.");
+        }catch(err){
+          if(errBox){ errBox.textContent=err.message||"Failed to delete account."; errBox.hidden=false; }
+          submitBtn.disabled=false;
+        }
+        return;
+      }
+      if(form.id!=="loginForm"&&form.id!=="registerForm"&&form.id!=="forgotForm"&&form.id!=="resetForm") return;
+      event.preventDefault();
+      const failure=$("#loginError"), success=$("#loginSuccess"), submit=form.querySelector("[type=submit]"), values=new FormData(form), get=(key)=>String(values.get(key)||"").trim();
+      if(failure) failure.hidden=true;
+      if(success) success.hidden=true;
+      if(!form.reportValidity()) return;
+      submit.disabled=true;
+      try{
+        if(form.id==="loginForm"){
+          const data=await apiJson("POST","/auth/login",{email:get("email"),password:String(values.get("password")||"")});
+          await startSession(data.user);
+        }else if(form.id==="registerForm"){
+          const data=await apiJson("POST","/auth/register",{name:get("name"),email:get("email"),password:String(values.get("password")||""),...(get("phone")?{phone:get("phone")}:{})});
+          await startSession(data.user);
+        }else if(form.id==="forgotForm"){
+          const res=await apiJson("POST","/auth/forgot",{email:get("email")});
+          if(success){ success.textContent=res.message||"Reset instructions sent."; success.hidden=false; }
+          submit.disabled=false;
+        }else if(form.id==="resetForm"){
+          const res=await apiJson("POST","/auth/reset",{token:get("token"),new_password:String(values.get("password")||"")});
+          showToast(res.message||"Password reset. Please sign in.");
+          renderLogin("signin");
+        }
+      }catch(error){
+        if(failure){ failure.textContent=error.message; failure.hidden=false; }
+        submit.disabled=false;
+      }
+    });
+
+    // ---- request desk ----
     function trackerHTML(req){
       const idx=STATUS_ORDER.indexOf(req.status);
-      return `<div class="tracker"><ol>${STATUS_ORDER.map((s,i)=>{ const h=req.history[i]; return `<li class="${i<idx?"done":i===idx?"now":""}"><i>${i<idx?"✓":i+1}</i><span>${STATUS_LABEL[s]}</span>${h?`<small>${when(h.at)}</small>`:""}</li>`; }).join("")}</ol></div>`;
+      return `<div class="tracker"><ol>${STATUS_ORDER.map((s,i)=>{ const h=req.history[i]; return `<li class="${i<idx?"done":i===idx?"now":""}"><i>${i<idx?"✓":i+1}</i><span>${STATUS_LABEL[s]||s}</span>${h?`<small>${when(h.at)}</small>`:""}</li>`; }).join("")}</ol></div>`;
     }
     function requestCard(req,actions){
-      return `<article class="req-card st-${req.status}"><div class="req-card-top"><span class="req-id">${esc(req.id)} · ${when(req.createdAt)}</span><span class="req-status ${req.status}">${STATUS_LABEL[req.status]}</span></div>
+      const dupBadge = req.duplicateWarning ? `<div style="background:rgba(239,68,68,0.15);border:1px solid #ef4444;border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:12px;color:#fca5a5">⚠️ <b>${t('dup_warning_title')}</b> ${t('dup_warning_desc')} (${esc(req.duplicateCodes ? req.duplicateCodes.join(', ') : 'within 1 hr')})</div>` : "";
+      return `<article class="req-card st-${req.status}"><div class="req-card-top"><span class="req-id">${esc(req.id)} · ${when(req.createdAt)}</span><span class="req-status ${req.status}">${STATUS_LABEL[req.status]||req.status}</span></div>
+      ${dupBadge}
       <div class="req-meta"><span>${esc(req.name)}</span><span>${esc(req.address)}</span><span>${esc(req.phone)}</span><span>${req.adults} adults · ${req.children} children</span></div>
       <p class="req-brief">${esc(req.brief)}</p>
-      ${req.photo?`<div class="photo-preview"><img src="${req.photo}" alt="Verification photo for ${esc(req.id)}"><small>Verification photo</small></div>`:""}
+      ${req.photo?`<div class="photo-preview"><img src="${esc(req.photo)}" alt="Verification photo for ${esc(req.id)}"><small>Verification photo</small></div>`:""}
       ${req.resource?`<div class="req-meta"><span>Assigned: <b>${esc(req.resource)}</b></span></div>`:""}
+      ${req.crisisTitle?`<div class="req-meta"><span>Incident: <b>${esc(req.crisisTitle)}</b></span></div>`:""}
       ${trackerHTML(req)}
       ${actions||""}</article>`;
     }
-    function resourceOptionsHTML(){ return store.resources.filter((r)=>r.assigned<r.total).map((r)=>`<option value="${esc(r.name)}">${esc(r.name)} (${r.total-r.assigned} free)</option>`).join(""); }
+    const deskResourceOptions=()=>desk.resources.filter((r)=>!r.maintenance&&r.available>0).map((r)=>`<option value="${esc(r.id)}">${esc(r.name)} (${fmt(r.available)} free)</option>`).join("");
+    const deskIncidentOptions=()=>`<option value="">No incident link</option>${desk.incidents.map((c)=>`<option value="${esc(c.id)}">${esc(c.city)} / ${esc(c.title)}</option>`).join("")}`;
+    let lastDeskKey="";
     function renderRoleWorkspace(){
-      if(!session) return;
+      if(!session||!hasDesk()) return;
       const role=ROLES[session.role];
-      $("[data-role-eyebrow]").textContent="ROLE WORKSPACE";
-      $("[data-role-title]").textContent=role.label;
-      $("[data-role-blurb]").textContent=role.blurb;
+      const isSeeker = session.role === "seeker";
+      $("[data-role-eyebrow]").textContent = isSeeker ? t("desk_eyebrow") : "ROLE WORKSPACE";
+      $("[data-role-title]").textContent = isSeeker ? t("seeker_title") : role.label;
+      $("[data-role-blurb]").textContent = isSeeker ? t("seeker_blurb") : role.blurb;
       const roleIcon=$("#wsRoleIcon"); if(roleIcon) roleIcon.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ROLE_ICONS[session.role]}</svg>`;
       syncAuthUI();
       const tabs=$("#roleTabs");
       if(tabs.dataset.role!==session.role){ tabs.dataset.role=session.role; tabs.dataset.tab="0"; }
-      tabs.innerHTML=role.tabs.map((t,i)=>`<button type="button" role="tab" aria-selected="${tabs.dataset.tab===String(i)}" class="${tabs.dataset.tab===String(i)?"is-active":""}" data-role-tab="${i}">${esc(t)}</button>`).join("");
+      const tabLabels = isSeeker ? [t("raise_tab"), t("track_tab")] : role.tabs;
+      tabs.innerHTML=tabLabels.map((tText,i)=>`<button type="button" role="tab" aria-selected="${tabs.dataset.tab===String(i)}" class="${tabs.dataset.tab===String(i)?"is-active":""}" data-role-tab="${i}">${esc(tText)}</button>`).join("") + `<div style="margin-left:auto;display:flex;align-items:center"><a class="work-btn" href="/api/exports/help-requests.csv" download="help_requests.csv" style="text-decoration:none;font-size:11px;padding:3px 8px">Export CSV ↗</a></div>`;
       const wrap=$("#roleWorkspace"); const tab=Number(tabs.dataset.tab||0);
+      const open=desk.requests.filter((r)=>r.status!=="resolved");
       if(session.role==="seeker"){
         if(tab===0){
           wrap.innerHTML=`<form class="work-form req-card" id="raiseForm">
             <div class="work-form-grid">
-              <label>Your name<input class="work-input" name="name" required maxlength="60" placeholder="Full name"></label>
-              <label>Phone number<input class="work-input" name="phone" type="tel" required maxlength="20" placeholder="+91 …"></label>
-              <label class="full">Address<input class="work-input" name="address" required maxlength="120" placeholder="House, street, town, district"></label>
-              <label class="full">What help do you need?<textarea class="work-input" name="brief" required maxlength="240" rows="2" placeholder="Briefly describe the situation"></textarea></label>
-              <label>Adults (approx.)<input class="work-input" name="adults" type="number" min="0" max="500" value="1" required></label>
-              <label>Children (approx.)<input class="work-input" name="children" type="number" min="0" max="500" value="0" required></label>
-              <label class="full">Photo for verification<input class="work-input" id="raisePhoto" type="file" accept="image/*"></label>
+              <label>${t("your_name")}<input class="work-input" name="name" required maxlength="60" placeholder="${esc(session.user.name)}" value="${esc(session.user.name)}"></label>
+              <label>${t("phone_number")}<input class="work-input" name="phone" type="tel" required minlength="5" maxlength="20" placeholder="+91 …" value="${esc(session.user.phone||"")}"></label>
+              <label class="full">${t("address")}<input class="work-input" name="address" required maxlength="120" placeholder="House, street, town, district"></label>
+              <label class="full">${t("what_help")}<textarea class="work-input" name="brief" required minlength="3" maxlength="240" rows="2" placeholder="${t("brief_placeholder")}"></textarea></label>
+              <label>${t("adults_count")}<input class="work-input" name="adults" type="number" min="0" max="500" value="1" required></label>
+              <label>${t("children_count")}<input class="work-input" name="children" type="number" min="0" max="500" value="0" required></label>
+              <label class="full">${t("photo_verification")}<input class="work-input" id="raisePhoto" type="file" accept="image/jpeg,image/png,image/webp,image/gif"></label>
             </div>
             <div class="photo-preview" id="photoPreview" hidden><img alt="Verification photo preview"><small>Attached for verification</small></div>
-            <div class="req-actions"><button class="work-btn primary" type="submit">Raise request</button><p style="color:var(--dim);font-size:11px">Your request reaches crisis managers immediately.</p></div>
+            <div class="req-actions"><button class="work-btn primary" type="submit">${t("raise_submit")}</button><p style="color:var(--dim);font-size:11px">${t("emergency_notice")}</p></div>
           </form>`;
         } else {
-          wrap.innerHTML=store.requests.length?store.requests.map((r)=>requestCard(r)).join(""):'<p class="work-empty">No requests yet. Raise one from the first tab.</p>';
+          const privacyCard = `<div class="req-card" style="margin-top:20px;padding:14px 16px;background:var(--surface);border:1px solid var(--line-soft);border-radius:6px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div><b style="font-size:13px;color:var(--ink)">Privacy &amp; Data Erasure</b><p style="margin:4px 0 0;font-size:11px;color:var(--dim)">You can download your personal data copy or permanently delete your account &amp; requests.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="work-btn" data-download-my-data style="font-size:11px;padding:4px 10px">Download my data (JSON) 📥</button><button type="button" class="work-btn" data-open-delete-account style="font-size:11px;padding:4px 10px;color:#fca5a5;border-color:rgba(239,68,68,0.4)">Delete my account 🗑</button><button type="button" class="work-btn" data-open-privacy style="font-size:11px;padding:4px 10px">Privacy Notice 📜</button></div></div></div>`;
+          const reqList = desk.requests.length?desk.requests.map((r)=>{
+            let actions="";
+            if(r.status!=="resolved"&&r.status!=="cancelled"){
+              actions=`<div class="req-actions" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft)">
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                  <input class="work-input" name="updateText" placeholder="${t("add_update_placeholder")}" maxlength="250" style="flex:1;min-width:180px;font-size:12px">
+                  <button class="work-btn" type="button" data-act="seeker-update" data-id="${esc(r.id)}">${t("post_update")}</button>
+                  <button class="work-btn" type="button" data-act="seeker-cancel" data-id="${esc(r.id)}" style="color:#fca5a5">${t("cancel_req")}</button>
+                </div>
+              </div>`;
+            }
+            return requestCard(r,actions);
+          }).join(""):`<p class="work-empty">${t("no_requests_yet")}</p>`;
+          wrap.innerHTML = reqList + privacyCard;
         }
       } else if(session.role==="manager"){
         if(tab===0){
-          const open=store.requests.filter((r)=>r.status!=="resolved");
           wrap.innerHTML=open.length?open.map((r)=>{
             let actions="";
-            if(r.status==="opened") actions=`<div class="req-actions"><button class="work-btn primary" type="button" data-act="verify" data-id="${r.id}">Verify request</button></div>`;
-            else if(r.status==="verified") actions=`<div class="req-actions"><select class="work-select" name="resource" style="max-width:260px">${resourceOptionsHTML()}</select><button class="work-btn primary" type="button" data-act="assign" data-id="${r.id}">Assign resource</button></div>`;
-            else if(r.status==="enroute") actions=`<div class="req-actions"><button class="work-btn" type="button" data-act="resolve" data-id="${r.id}">Mark resolved</button></div>`;
-            else if(r.status==="assigned") actions=`<div class="req-actions"><p style="color:var(--dim);font-size:11px">Waiting for the coordinator to confirm dispatch.</p></div>`;
+            if(r.status==="opened") actions=`<div class="req-actions"><select class="work-select" name="incident" aria-label="Link to an incident (optional)" style="max-width:260px">${deskIncidentOptions()}</select><button class="work-btn primary" type="button" data-act="verify" data-id="${esc(r.id)}">Verify request</button></div>`;
+            else if(r.status==="verified") actions=`<div class="req-actions"><select class="work-select" name="resource" aria-label="Resource to assign" style="max-width:260px">${deskResourceOptions()||'<option value="">No capacity available</option>'}</select><button class="work-btn primary" type="button" data-act="assign" data-id="${esc(r.id)}">Assign resource</button></div>`;
+            else if(r.status==="enroute"||r.status==="assigned") actions=`<div class="req-actions" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              ${r.status==="enroute"?'<button class="work-btn primary" type="button" data-act="resolve" data-id="'+esc(r.id)+'">Mark resolved</button>':'<span style="color:var(--dim);font-size:11px">Waiting for dispatch · </span>'}
+              <select class="work-select" name="reassignResource" aria-label="Reassign resource" style="max-width:180px">${deskResourceOptions()||'<option value="">No capacity</option>'}</select>
+              <button class="work-btn" type="button" data-act="reassign" data-id="${esc(r.id)}">Reassign</button>
+              <button class="work-btn" type="button" data-act="release-unit" data-id="${esc(r.id)}" style="color:#fca5a5">Release unit</button>
+            </div>`;
             return requestCard(r,actions);
           }).join(""):'<p class="work-empty">No open requests right now.</p>';
         } else {
-          wrap.innerHTML=`<div class="overview-stats">${[[""+store.requests.filter((r)=>r.status!=="resolved").length,"Open requests"],[""+store.requests.filter((r)=>r.status==="enroute").length,"En route"],[""+store.resources.reduce((s,r)=>s+r.assigned,0),"Units committed"],[""+store.audit.length,"Decisions logged"]].map(([v,l])=>`<div class="overview-stat"><b>${v}</b><span>${l}</span></div>`).join("")}</div>`+store.requests.filter((r)=>r.status!=="resolved").map((r)=>requestCard(r)).join("");
+          wrap.innerHTML=`<div class="overview-stats">${[[""+open.length,"Open requests"],[""+desk.requests.filter((r)=>r.status==="enroute").length,"En route"],[""+desk.resources.reduce((s,r)=>s+r.assigned,0),"Units committed"],[""+desk.incidents.length,"Open incidents"]].map(([v,l])=>`<div class="overview-stat"><b>${v}</b><span>${l}</span></div>`).join("")}</div>`+open.map((r)=>requestCard(r)).join("");
         }
       } else if(session.role==="coordinator"){
         if(tab===0){
-          const queue=store.requests.filter((r)=>r.status==="assigned");
-          wrap.innerHTML=queue.length?queue.map((r)=>requestCard(r,`<div class="req-actions"><button class="work-btn primary" type="button" data-act="dispatch" data-id="${r.id}">Confirm dispatch</button></div>`)).join(""):'<p class="work-empty">Nothing waiting for dispatch. Assigned requests appear here.</p>';
+          const queue=desk.requests.filter((r)=>r.status==="assigned");
+          wrap.innerHTML=queue.length?queue.map((r)=>requestCard(r,`<div class="req-actions"><button class="work-btn primary" type="button" data-act="dispatch" data-id="${esc(r.id)}">Confirm dispatch</button></div>`)).join(""):'<p class="work-empty">Nothing waiting for dispatch. Assigned requests appear here.</p>';
         } else {
-          wrap.innerHTML=`<div class="table-scroll"><table class="work-table"><thead><tr><th>Resource</th><th>Type</th><th>Committed</th><th>Available</th></tr></thead><tbody>${store.resources.map((r)=>`<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.type)}</td><td>${r.assigned} / ${r.total}</td><td><div class="capacity-bar" style="min-width:90px"><i style="width:${Math.round(r.assigned/r.total*100)}%"></i></div></td></tr>`).join("")}</tbody></table></div>`;
+          wrap.innerHTML=`<div class="table-scroll"><table class="work-table"><thead><tr><th>Resource</th><th>Type</th><th>Committed</th><th>Available</th></tr></thead><tbody>${desk.resources.map((r)=>`<tr><td><b>${esc(r.name)}</b>${r.maintenance?"<small>In maintenance</small>":""}</td><td>${esc(r.type)}</td><td>${fmt(r.assigned)} / ${fmt(r.total)}</td><td><div class="capacity-bar" style="min-width:90px"><i style="width:${Math.round(r.assigned/r.total*100)}%"></i></div></td></tr>`).join("")}</tbody></table></div>`;
         }
       } else if(session.role==="admin"){
         if(tab===0){
-          wrap.innerHTML=`<div class="overview-stats">${[[""+store.requests.length,"Total requests"],[""+store.requests.filter((r)=>r.status!=="resolved").length,"Open"],[""+store.resources.reduce((s,r)=>s+(r.total-r.assigned),0),"Units free"],[""+store.audit.length,"Audit entries"]].map(([v,l])=>`<div class="overview-stat"><b>${v}</b><span>${l}</span></div>`).join("")}</div><h3 class="section-title">Latest decisions</h3><ul class="decision-list">${store.audit.slice(0,8).map((a)=>`<li><small>${when(a.at)} · ${esc(a.actor)}</small>${esc(a.action)}</li>`).join("")}</ul>`;
+          wrap.innerHTML=`<div class="overview-stats">${[[""+desk.requests.length,"Total requests"],[""+open.length,"Open"],[""+desk.resources.reduce((s,r)=>s+(r.maintenance?0:r.available),0),"Units free"],[""+desk.audit.length,"Audit entries"]].map(([v,l])=>`<div class="overview-stat"><b>${v}</b><span>${l}</span></div>`).join("")}</div><h3 class="section-title">Latest decisions</h3><ul class="decision-list">${desk.audit.slice(0,8).map((a)=>`<li><small>${when(a.at)} · ${esc(a.actor)}</small>${esc(a.action)}</li>`).join("")}</ul>`;
         } else {
-          wrap.innerHTML=`<ul class="decision-list">${store.audit.map((a)=>`<li><small>${when(a.at)} · ${esc(a.actor)}</small>${esc(a.action)}</li>`).join("")}</ul>`;
+          wrap.innerHTML=`<ul class="decision-list">${desk.audit.map((a)=>`<li><small>${when(a.at)} · ${esc(a.actor)}</small>${esc(a.action)}</li>`).join("")}</ul>`;
         }
       }
-      $$("#roleWorkspace > *").forEach((el,i)=>{ el.style.animation=`riseIn .55s var(--ease) ${Math.min(i,8)*60}ms backwards`; });
+      const deskKey=`${session.role}:${tab}`;
+      if(deskKey!==lastDeskKey){
+        lastDeskKey=deskKey;
+        $$("#roleWorkspace > *").forEach((el,i)=>{ el.style.animation=`riseIn .55s var(--ease) ${Math.min(i,8)*60}ms backwards`; });
+      }
     }
     let pendingPhoto=null;
     listen($("#roleTabs"),"click",(e)=>{ const b=e.target.closest("[data-role-tab]"); if(!b) return; $("#roleTabs").dataset.tab=b.dataset.roleTab; renderRoleWorkspace(); });
     listen($("#roleWorkspace"),"change",(e)=>{
       if(e.target.id!=="raisePhoto") return;
       const file=e.target.files&&e.target.files[0]; const prev=$("#photoPreview");
-      if(!file||!file.type.startsWith("image/")){ if(prev) prev.hidden=true; pendingPhoto=null; return; }
+      if(!file||!/^image\/(jpeg|png|webp|gif)$/.test(file.type)){ if(file) showToast("Choose a JPEG, PNG, WebP or GIF photo."); e.target.value=""; if(prev) prev.hidden=true; pendingPhoto=null; return; }
+      if(file.size>2*1024*1024){ showToast("That photo is larger than 2 MB. Choose a smaller one."); e.target.value=""; if(prev) prev.hidden=true; pendingPhoto=null; return; }
       const reader=new FileReader();
       reader.onload=()=>{ pendingPhoto=String(reader.result); const img=prev?prev.querySelector("img"):null; if(img) img.src=pendingPhoto; if(prev) prev.hidden=false; };
       reader.readAsDataURL(file);
     });
     listen($("#roleWorkspace"),"submit",(e)=>{
       if(e.target.id!=="raiseForm") return; e.preventDefault();
-      const f=e.target; const adults=Number(f.adults.value)||0, children=Number(f.children.value)||0;
-      const id="RSQ-"+String(store.seq++).padStart(4,"0");
-      const at=new Date().toISOString();
-      store.requests.unshift({id,name:f.name.value.trim(),address:f.address.value.trim(),phone:f.phone.value.trim(),brief:f.brief.value.trim(),adults,children,photo:pendingPhoto,status:"opened",createdAt:at,resource:null,history:[{at,label:"Request opened"}]});
-      store.audit.unshift({at,actor:"Help seeker",action:`Raised ${id}`});
-      pendingPhoto=null; saveStore();
-      $("#roleTabs").dataset.tab="1"; renderRoleWorkspace();
-      showToast(`${id} raised. Track it under "Track my requests".`);
+      const form=e.target, submit=form.querySelector("[type=submit]"), values=new FormData(form), get=(key)=>String(values.get(key)||"").trim();
+      if(!form.reportValidity()) return;
+      submit.disabled=true;
+      const payload={name:get("name"),phone:get("phone"),address:get("address"),brief:get("brief"),adults:Number(get("adults"))||0,children:Number(get("children"))||0,...(pendingPhoto?{photo:pendingPhoto}:{})};
+      mutate(apiJson("POST","/help-requests",payload),(created)=>`${created.id} raised. Track it under "Track my requests".`,()=>{ pendingPhoto=null; $("#roleTabs").dataset.tab="1"; }).then((created)=>{ if(created===null) submit.disabled=false; });
     });
     listen($("#roleWorkspace"),"click",(e)=>{
       const btn=e.target.closest("[data-act]"); if(!btn||!session) return;
-      const req=findRequest(btn.dataset.id); if(!req) return;
-      const act=btn.dataset.act; const now=new Date().toISOString(); const actor=ROLES[session.role].label;
-      if(act==="verify"&&req.status==="opened"){ req.status="verified"; pushStatus(req,"Verified by crisis manager"); store.audit.unshift({at:now,actor,action:`Verified ${req.id}`}); }
-      else if(act==="assign"&&req.status==="verified"){
-        const sel=btn.parentElement.querySelector("select[name=resource]"); const name=sel?sel.value:null;
-        const res=store.resources.find((r)=>r.name===name&&r.assigned<r.total);
-        if(!res){ showToast("No available capacity in that pool."); return; }
-        res.assigned+=1; req.resource=res.name; req.status="assigned"; pushStatus(req,`${res.name} assigned`); store.audit.unshift({at:now,actor,action:`Assigned ${res.name} to ${req.id}`});
+      const id=btn.dataset.id, act=btn.dataset.act, scope=btn.closest(".req-actions");
+      let request;
+      if(act==="verify"){ const incident=scope&&scope.querySelector("select[name=incident]"); request=apiJson("POST",`/help-requests/${enc(id)}/verify`,incident&&incident.value?{crisisId:incident.value}:{}); }
+      else if(act==="assign"){ const choice=scope&&scope.querySelector("select[name=resource]"); if(!choice||!choice.value){ showToast("No available capacity in that pool."); return; } request=apiJson("POST",`/help-requests/${enc(id)}/assign`,{resourceId:choice.value}); }
+      else if(act==="dispatch") request=apiJson("POST",`/help-requests/${enc(id)}/dispatch`);
+      else if(act==="resolve") request=apiJson("POST",`/help-requests/${enc(id)}/resolve`);
+      else if(act==="seeker-update"){
+        const input=scope&&scope.querySelector("input[name=updateText]");
+        if(!input||!input.value.trim()){ showToast("Enter an update note."); return; }
+        request=apiJson("POST",`/help-requests/${enc(id)}/update`,{text:input.value.trim()});
       }
-      else if(act==="dispatch"&&req.status==="assigned"){ req.status="enroute"; pushStatus(req,"Dispatch confirmed"); store.audit.unshift({at:now,actor,action:`Confirmed dispatch for ${req.id}`}); }
-      else if(act==="resolve"&&(req.status==="enroute"||req.status==="assigned")){
-        if(req.resource){ const res=store.resources.find((r)=>r.name===req.resource); if(res&&res.assigned>0) res.assigned-=1; }
-        req.status="resolved"; pushStatus(req,"Marked resolved"); store.audit.unshift({at:now,actor,action:`Resolved ${req.id}`});
-      } else return;
-      saveStore(); renderRoleWorkspace(); showToast(`${req.id} is now ${STATUS_LABEL[req.status]}.`);
+      else if(act==="seeker-cancel"){
+        request=apiJson("POST",`/help-requests/${enc(id)}/cancel`,{reason:"Cancelled by user"});
+      }
+      else if(act==="reassign"){
+        const choice=scope&&scope.querySelector("select[name=reassignResource]");
+        if(!choice||!choice.value){ showToast("Select a resource to reassign."); return; }
+        request=apiJson("POST",`/help-requests/${enc(id)}/reassign`,{resourceId:choice.value});
+      }
+      else if(act==="release-unit"){
+        request=apiJson("POST",`/help-requests/${enc(id)}/release-unit`);
+      }
+      else return;
+      btn.disabled=true;
+      mutate(request,(updated)=>`${updated.id} updated.`).then((updated)=>{ if(updated===null) btn.disabled=false; });
     });
     listen(document,"click",(e)=>{
-      const roleCard=e.target.closest("[data-role]");
-      if(roleCard){ setSession(roleCard.dataset.role); closeLogin(false); openWorkspace(); return; }
+      if(e.target.closest("[data-download-my-data]")){ e.preventDefault(); downloadMyData(); return; }
+      if(e.target.closest("[data-open-delete-account]")){ e.preventDefault(); openDeleteAccountModal(); return; }
+      if(e.target.closest("[data-close-delete-modal]")){ e.preventDefault(); closeDeleteAccountModal(); return; }
+      if(e.target.closest("[data-open-privacy]")){ e.preventDefault(); openPrivacyModal(); return; }
+      if(e.target.closest("[data-close-privacy-modal]")){ e.preventDefault(); closePrivacyModal(); return; }
+      if(e.target === $("#deleteAccountModal")){ closeDeleteAccountModal(); return; }
+      if(e.target === $("#privacyModal")){ closePrivacyModal(); return; }
+      if(e.target.closest("[data-lang-toggle]")){ e.preventDefault(); toggleLang(); return; }
+      const mode=e.target.closest("[data-login-mode]");
+      if(mode){ renderLogin(mode.dataset.loginMode); const first=$("#roleGrid input"); if(first) first.focus(); return; }
+      const demoAccount=e.target.closest("[data-demo-email]");
+      if(demoAccount){ const form=$("#loginForm"); if(form){ form.email.value=demoAccount.dataset.demoEmail; form.password.value=demoAccount.dataset.demoPassword; form.querySelector("[type=submit]").focus(); } return; }
       if(e.target.closest("[data-login-close]")){ e.preventDefault(); closeLogin(); return; }
-      if(e.target.closest("[data-switch-role]")){ e.preventDefault(); closePanel(); openLogin(); return; }
-      if(e.target.closest("[data-auth]")){ e.preventDefault(); if(session){ setSession(null); closePanel(); showToast("Signed out."); } else openLogin(); return; }
+      if(e.target.closest("[data-open-desk]")){ e.preventDefault(); openWorkspace(); return; }
+      if(e.target.closest("[data-open-platform]")){ e.preventDefault(); enterWorkspace(); return; }
+      if(e.target.closest("[data-switch-role]")){ e.preventDefault(); signOut().then(()=>openLogin()); return; }
+      if(e.target.closest("[data-auth]")){ e.preventDefault(); if(session) signOut(); else openLogin(); return; }
     });
-    listen(document,"keydown",(e)=>{ if(e.key==="Escape"&&body.classList.contains("login-open")) closeLogin(); });
+    listen(document,"keydown",(e)=>{
+      const delModal=$("#deleteAccountModal");
+      const privModal=$("#privacyModal");
+      if(delModal&&delModal.classList.contains("is-open")){
+        if(e.key==="Escape"){ closeDeleteAccountModal(); return; }
+        trapFocus(delModal,e);
+        return;
+      }
+      if(privModal&&privModal.classList.contains("is-open")){
+        if(e.key==="Escape"){ closePrivacyModal(); return; }
+        trapFocus(privModal,e);
+        return;
+      }
+      if(body.classList.contains("login-open")){
+        if(e.key==="Escape"){ closeLogin(); return; }
+        trapFocus($("#login"),e);
+      }
+    });
     syncAuthUI();
+    bootSession();
+    try{
+      const qp=new URLSearchParams(window.location.search);
+      const rt=qp.get("reset_token");
+      if(rt){ presetResetToken=rt; openLogin("reset"); }
+    }catch(_){}
     window.__resqsyncReady = true;
     syncIsolation();
     function scheduleIntroEnd(milliseconds,token = introGeneration) {
