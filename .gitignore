@@ -27,3 +27,19 @@ Thumbs.db
 .vscode/
 .idea/
 *.log
+
+# ResQSync runtime files
+backend/.dev_secret
+backend/uploads/
+backend/*.db-wal
+backend/*.db-shm
+*.db
+frontend/artifacts/
+backups/
+_backup_*/
+backup_*/
+_incoming/
+*.zip
+*.tar.gz
+.kilo/
+.ruff_cache/

@@ -28,6 +28,8 @@ const lifecycle = `
   const timers = new Set();
   const frames = new Set();
   let disposed = false;
+  const cleanupHooks = [];
+  const onDispose = (hook) => { cleanupHooks.push(hook); };
   const setTimeout = (callback, delay = 0) => {
     const id = window.setTimeout(() => { timers.delete(id); if (!disposed) callback(); }, delay);
     timers.add(id);
@@ -46,6 +48,7 @@ const lifecycle = `
   const dispose = () => {
     disposed = true;
     abort.abort();
+    cleanupHooks.forEach((hook) => { try { hook(); } catch {} });
     timers.forEach((id) => window.clearTimeout(id));
     frames.forEach((id) => window.cancelAnimationFrame(id));
     document.body.classList.remove('menu-open', 'gridview', 'lit', 'panelopen', 'dragging', 'deep', 'has-pointer', 'ws-drawer-open', 'intro-active', 'finder-open');

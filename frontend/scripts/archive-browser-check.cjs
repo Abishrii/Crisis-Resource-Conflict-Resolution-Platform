@@ -87,33 +87,19 @@ const server = createServer((request,response) => {
         assert.equal(homeGeometry.boxShadow,"none","Homepage context should stay editorial rather than a floating card.");
         assert.equal(await page.locator(".ticker").count(),0,"The floating ticker should be removed.");
         assert.equal(await page.locator("[data-finder-open]").count(),0,"The photo finder controls should be removed from the page.");
-        // Role login flow: help seeker raises a request, crisis manager sees it.
+        // Sign-in gate: real accounts (e-mail + password) replace the old role picker. Full account flows
+        // need the backend and are covered by the live end-to-end run (see scripts/README.md).
         await page.locator("#authBtn").click();
         await page.locator("#login.is-open").waitFor({ state:"visible" });
+        assert.equal(await page.locator("#loginForm [name='email']").count(),1);
+        assert.equal(await page.locator("#loginForm [name='password']").count(),1);
+        assert.equal(await page.locator(".role-card").count(),0,"Role cards without a password must not return.");
         await page.screenshot({ path:resolve(project,"artifacts/login-desktop.png") });
-        await page.locator(".role-card[data-role='seeker']").click();
-        assert.equal(await page.locator("[data-role-title]").textContent(),"Help seeker");
-        await page.locator("#raiseForm [name='name']").fill("Test Resident");
-        await page.locator("#raiseForm [name='phone']").fill("+91 90000 00001");
-        await page.locator("#raiseForm [name='address']").fill("1 Test Lane, Pune");
-        await page.locator("#raiseForm [name='brief']").fill("Need evacuation assistance.");
-        await page.locator("#raiseForm [name='adults']").fill("2");
-        await page.locator("#raiseForm [name='children']").fill("1");
-        await page.locator("#raiseForm button[type='submit']").click();
-        assert.equal(await page.locator("#roleTabs .is-active").textContent(),"Track my requests");
-        assert.ok(await page.locator(".tracker li.done, .tracker li.now").count() >= 1,"Raised request should show tracker progress.");
-        await page.screenshot({ path:resolve(project,"artifacts/workspace-seeker.png") });
-        await page.locator("[data-close-panel]").click();
-        await page.locator("#authBtn").click();
-        await page.locator("#authBtn").click();
-        await page.locator("#login.is-open").waitFor({ state:"visible" });
-        await page.locator(".role-card[data-role='manager']").click();
-        assert.equal(await page.locator("[data-role-title]").textContent(),"Crisis manager");
-        assert.ok(await page.locator("#roleWorkspace .req-card").count() >= 1,"Manager queue should include the seeker's request.");
-        await page.screenshot({ path:resolve(project,"artifacts/workspace-manager.png") });
-        await page.locator("[data-close-panel]").click();
-        assert.equal(await page.locator("body.panelopen").count(),0);
-        console.log(`[archive-browser] PASS home + role workspaces: seeker raised a request, manager queue received it.`);
+        await page.locator("[data-login-mode='register']").click();
+        assert.equal(await page.locator("#registerForm [name='password']").count(),1);
+        await page.locator(".login-close").click();
+        assert.equal(await page.locator("body.login-open").count(),0);
+        console.log(`[archive-browser] PASS home + sign-in gate.`);
       }
       await page.locator("#menuBtn").click();
       await page.locator("#menu [data-watch-intro]").click();
@@ -158,13 +144,10 @@ const server = createServer((request,response) => {
     await page.locator("#menuBtn").click();
     await page.locator("#menu [data-panel='crises']").click();
     await page.locator("#login.is-open").waitFor({ state:"visible" });
-    await page.locator(".role-card[data-role='coordinator']").click();
-    assert.equal(await page.locator("[data-role-title]").textContent(),"Resource coordinator");
-    await page.locator("#roleTabs [data-role-tab='1']").click();
-    assert.equal(await page.locator("#roleTabs .is-active").textContent(),"Inventory");
+    assert.equal(await page.locator("#loginForm [name='password']").count(),1,"Workspace links must open the sign-in form for guests.");
     await page.screenshot({ path:resolve(project,"artifacts/workspace-mobile.png") });
-    await page.locator("[data-close-panel]").click();
-    assert.equal(await page.locator("body.panelopen").count(),0);
+    await page.locator(".login-close").click();
+    assert.equal(await page.locator("body.login-open").count(),0);
     assert.equal(await page.locator("iframe,#splash,#enterArchive").count(),0);
     await page.goto(`${origin}${screenshotEntry}?skipIntro=1`,{ waitUntil:"domcontentloaded" });
     await page.waitForFunction(() => window.__resqsyncReady === true);

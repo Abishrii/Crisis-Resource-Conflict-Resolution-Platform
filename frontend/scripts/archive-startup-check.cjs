@@ -30,6 +30,12 @@ function check({ compiledEntry = false, storageDenied = false, savedData = null,
     addListener() {}, removeListener() {},
   });
   window.scrollTo = () => {};
+  // The interface now talks to the ResQSync API. Stand in for a server where nobody is signed in.
+  window.fetch = async (url) => {
+    const path = String(url);
+    const body = path.includes("/api/meta") ? { allowRegistration: true, demo: null } : { detail: "Sign in to continue." };
+    return { ok: path.includes("/api/meta"), status: path.includes("/api/meta") ? 200 : 401, json: async () => body };
+  };
   window.HTMLCanvasElement.prototype.getContext = () => null;
   window.HTMLMediaElement.prototype.pause = function () {};
   window.HTMLMediaElement.prototype.play = function () { return Promise.reject(new Error("Blocked autoplay in regression test")); };
@@ -58,11 +64,12 @@ function check({ compiledEntry = false, storageDenied = false, savedData = null,
     assert.equal(document.documentElement.dataset.theme, "light");
     document.querySelector("#menu [data-panel='overview']").click();
     assert.ok(document.body.classList.contains("login-open"), "Workspace links should open the sign-in gate.");
-    document.querySelector(".role-card[data-role='seeker']").click();
-    assert.ok(document.body.classList.contains("panelopen"), "Selecting a role should open its workspace.");
-    assert.equal(document.querySelector("[data-role-title]").textContent, "Help seeker");
-    document.querySelector("[data-close-panel]").click();
-    assert.equal(document.body.classList.contains("panelopen"), false);
+    assert.ok(document.querySelector("#loginForm [name=email]") && document.querySelector("#loginForm [name=password]"), "The sign-in form (e-mail and password) must be shown.");
+    assert.equal(document.querySelector(".role-card"), null, "Role cards without a password must not return.");
+    document.querySelector("#login [data-login-mode='register']").click();
+    assert.ok(document.querySelector("#registerForm [name=password]"), "Help seekers must be able to create an account.");
+    document.querySelector(".login-close").click();
+    assert.equal(document.body.classList.contains("login-open"), false);
     document.getElementById("menuBtn").click();
     document.querySelector("[data-watch-intro]").click();
     assert.ok(document.body.classList.contains("intro-active"),"Watch intro should replay the film presentation.");
@@ -82,4 +89,4 @@ function check({ compiledEntry = false, storageDenied = false, savedData = null,
 }
 
 for (const options of [{},{ storageDenied:true },{ savedData:"invalid-json" },{ legacyMedia:true },{ reducedMotion:true },{ compiledEntry:true },{ compiledEntry:true,storageDenied:true }]) check(options);
-console.log("[archive-check] PASS: intro, skip, replay, workspace, photo search, light mode, denied storage and remount cleanup.");
+console.log("[archive-check] PASS: intro, skip, replay, sign-in gate, photo search, light mode, denied storage and remount cleanup.");

@@ -1,0 +1,33 @@
+process.env.AWS_EXECUTION_ENV = `AWS_Lambda_nodejs${process.versions.node.split(".")[0]}.x`;
+const chromium = require("@sparticuz/chromium").default;
+const { chromium: pw } = require("playwright-core");
+let fails = 0, n = 0;
+const ok = (name, c, x = "") => { n++; if (!c) fails++; console.log(`${c ? "PASS" : "FAIL"} ${n} ${name}${!c && x ? " -> " + x : ""}`); };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+(async () => {
+  const b = await pw.launch({ executablePath: await chromium.executablePath(), args: chromium.args.filter((a) => a !== "--single-process"), headless: true });
+  const ctx = await b.newContext({ viewport: { width: 1360, height: 900 } });
+  await ctx.addInitScript(() => document.addEventListener("DOMContentLoaded", () => { const st = document.createElement("style"); st.textContent = "#stage{display:none !important}*,*::before,*::after{transition-duration:0s !important;animation-duration:0s !important}"; document.head.append(st); }));
+  const p = await ctx.newPage(); p.setDefaultTimeout(30000);
+  const errs = []; p.on("pageerror", (e) => errs.push(e.message));
+  await p.goto((process.env.BASE_URL || "http://127.0.0.1:8000") + "/?skipIntro", { waitUntil: "domcontentloaded" });
+  await p.waitForFunction(() => window.__resqsyncReady === true);
+  await p.click("#authBtn"); await p.waitForSelector("#loginForm");
+  await p.fill("#loginForm [name=email]", "arjun@example.org"); await p.fill("#loginForm [name=password]", "Resqsync#2026");
+  await p.click("#loginForm [type=submit]");
+  await p.waitForFunction(() => /Active incidents/.test(document.querySelector("#workspaceContent")?.innerText || ""));
+  ok("signed in and workspace loaded", true);
+  await p.reload({ waitUntil: "domcontentloaded" });
+  await p.waitForFunction(() => window.__resqsyncReady === true);
+  await p.waitForFunction(() => document.querySelector("#authBtn").textContent.trim() === "Crisis manager", null, { timeout: 15000 }).then(() => ok("reload keeps the session (cookie)", true)).catch(() => ok("reload keeps the session (cookie)", false));
+  // open the workspace again after reload: data comes from the server, not the browser
+  await p.evaluate(() => document.querySelector('[data-panel="resources"]').click());
+  await p.waitForFunction(() => /Ventilator reserve/.test(document.querySelector("#workspaceContent")?.innerText || "")).then(() => ok("after reload, data is loaded from the server", true)).catch(() => ok("after reload, data is loaded from the server", false));
+  ok("browser storage holds no workspace data", await p.evaluate(() => Object.keys(localStorage).every((k) => !/workspace|store|session/i.test(k)) ));
+  await p.evaluate(() => document.querySelector("#authBtn").click());
+  await sleep(1500);
+  ok("sign out ends the server session", await p.evaluate(async () => (await fetch("/api/auth/me")).status === 401));
+  ok("no page errors", errs.length === 0, errs.join("|"));
+  await b.close();
+  console.log(fails ? `${fails} FAILURE(S)` : "ALL PASSED"); process.exit(fails ? 1 : 0);
+})().catch((e) => { console.log("CRASH", e.message.slice(0, 300)); process.exit(1); });
