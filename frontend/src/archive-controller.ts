@@ -2086,7 +2086,6 @@ export function initializeArchive() {
         $("#loginTitle").textContent=register?t("register_title"):t("signin_title");
         $(".login-sub").textContent=register?t("register_sub"):t("signin_sub");
       }
-      const demo=meta&&meta.demo?`<details class="login-demo"><summary>${t("demo_accounts")}</summary><p>Sample accounts to try each role. Password for all: <code>${esc(meta.demo.password)}</code></p><div class="login-demo-list">${meta.demo.accounts.map((account)=>`<button type="button" class="text-action" data-demo-email="${esc(account.email)}" data-demo-password="${esc(meta.demo.password)}">${esc(account.name)} <small>${esc(roleNames[account.role]||account.role)}</small></button>`).join("")}</div></details>`:"";
       const canRegister=!meta||meta.allowRegistration;
       if(register){
         $("#roleGrid").innerHTML=`<form id="registerForm" class="work-form login-form" novalidate><label>${t("name_label")}<input class="work-input" name="name" required minlength="2" maxlength="80" autocomplete="name"></label><label>${t("email_label")}<input class="work-input" name="email" type="email" required maxlength="254" autocomplete="username"></label><label>${t("phone_label")}<input class="work-input" name="phone" type="tel" maxlength="30" autocomplete="tel"></label><label>${t("password_label")}<input class="work-input" name="password" type="password" required minlength="10" maxlength="128" autocomplete="new-password"></label><p class="login-hint">At least 10 characters, with letters and a number or symbol.</p><p class="login-error" id="loginError" role="alert" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("create_account_btn")}</button><button class="work-btn" type="button" data-login-mode="signin">${t("already_account")}</button></div></form>`;
@@ -2095,8 +2094,51 @@ export function initializeArchive() {
       }else if(reset){
         $("#roleGrid").innerHTML=`<form id="resetForm" class="work-form login-form" novalidate><label>Reset token<input class="work-input" name="token" required maxlength="128" placeholder="Paste token from email" value="${esc(presetResetToken||"")}"></label><label>${t("password_label")}<input class="work-input" name="password" type="password" required minlength="10" maxlength="128" autocomplete="new-password"></label><p class="login-hint">At least 10 characters, with letters and a number or symbol.</p><p class="login-error" id="loginError" role="alert" hidden></p><p class="login-hint" id="loginSuccess" style="color:var(--gold,#d4af37)" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("set_new_pwd")}</button><button class="work-btn" type="button" data-login-mode="signin">${t("back_signin")}</button></div></form>`;
       }else{
-        $("#roleGrid").innerHTML=`<form id="loginForm" class="work-form login-form" novalidate><label>${t("email_label")}<input class="work-input" name="email" type="email" required maxlength="254" autocomplete="username"></label><label>${t("password_label")}<input class="work-input" name="password" type="password" required maxlength="128" autocomplete="current-password"></label><div style="display:flex;justify-content:flex-end;margin-top:-4px;margin-bottom:8px"><button type="button" class="text-action" data-login-mode="forgot" style="font-size:12px">${t("forgot_password")}</button></div><p class="login-error" id="loginError" role="alert" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("signin_btn")}</button>${canRegister?`<button class="work-btn" type="button" data-login-mode="register">${t("need_help_account")}</button>`:""}</div>${demo}</form>`;
+        const baseRoles = [
+          { role: "admin", name: "Crisis Director", tag: "Admin", email: "admin@resqsync.org", password: "Admin#2026", desc: "Full administrative oversight, audit logs & governance", icon: '<path d="M12 3 20 6v5.5c0 4.4-3 7.8-8 9.5-5-1.7-8-5.1-8-9.5V6l8-3Z"/>' },
+          { role: "crisis-manager", name: "Crisis Manager", tag: "Crisis Manager", email: "manager@resqsync.org", password: "Resqsync#2026", desc: "Incident verification, allocation conflict & emergency dispatch", icon: '<path d="M13 2.5 4.5 13.5H12l-1 8 8.5-11H12l1-8Z"/>' },
+          { role: "resource-coordinator", name: "Resource Coordinator", tag: "Logistics", email: "coordinator@resqsync.org", password: "Resqsync#2026", desc: "Inventory management, dispatch tracking & logistics fleet", icon: '<path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4v-9Z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/>' },
+          { role: "viewer", name: "Field Viewer", tag: "Observer", email: "viewer@resqsync.org", password: "Resqsync#2026", desc: "Live situational telemetry, conflict maps & view-only reports", icon: '<circle cx="12" cy="12" r="3.2"/><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>' },
+          { role: "help-seeker", name: "Citizen Seeker", tag: "Help Seeker", email: "citizen@resqsync.org", password: "Resqsync#2026", desc: "Raise emergency SOS relief requests & track responder arrival", icon: '<path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.4h.01"/>' }
+        ];
+        const serverAccounts = (meta && meta.demo && meta.demo.accounts) || [];
+        const rolesToDisplay = baseRoles.map((br) => {
+          const found = serverAccounts.find((sa) => sa.role === br.role || (sa.email && sa.email.toLowerCase() === br.email.toLowerCase()));
+          if (found) {
+            return {
+              ...br,
+              name: found.name || br.name,
+              email: found.email || br.email,
+              password: found.password || (found.role === "admin" ? "Admin#2026" : (meta && meta.demo && meta.demo.password) || br.password)
+            };
+          }
+          return br;
+        });
+        const quickRolesHtml = `
+          <div class="role-section-title">⚡ Quick Role Login (Direct 1-Click Access)</div>
+          <div class="role-list" style="margin-bottom:14px">
+            ${rolesToDisplay.map((r) => `
+              <button type="button" class="role-card" data-direct-login data-email="${esc(r.email)}" data-password="${esc(r.password)}" aria-label="Direct sign in as ${esc(r.name)}">
+                <span class="role-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">${r.icon}</svg></span>
+                <div class="role-card-text">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    <b>${esc(r.name)}</b>
+                    <span class="role-card-tag">${esc(r.tag)}</span>
+                  </div>
+                  <small>${esc(r.desc)}</small>
+                  <div class="role-card-meta">
+                    <span class="role-card-cred" title="Email address">📧 ${esc(r.email)}</span>
+                    <span class="role-card-cred" title="Password">🔑 ${esc(r.password)}</span>
+                  </div>
+                </div>
+                <span class="role-arrow">↗</span>
+              </button>
+            `).join("")}
+          </div>
+        `;
+        $("#roleGrid").innerHTML=`${quickRolesHtml}<div class="login-divider">or enter credentials manually</div><form id="loginForm" class="work-form login-form" novalidate><label>${t("email_label")}<input class="work-input" name="email" type="email" required maxlength="254" autocomplete="username"></label><label>${t("password_label")}<input class="work-input" name="password" type="password" required maxlength="128" autocomplete="current-password"></label><div style="display:flex;justify-content:flex-end;margin-top:-4px;margin-bottom:8px"><button type="button" class="text-action" data-login-mode="forgot" style="font-size:12px">${t("forgot_password")}</button></div><p class="login-error" id="loginError" role="alert" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("signin_btn")}</button>${canRegister?`<button class="work-btn" type="button" data-login-mode="register">${t("need_help_account")}</button>`:""}</div></form>`;
       }
+
       $(".login-note").textContent=t("signin_note");
     }
     function openLogin(mode="signin"){
@@ -2327,8 +2369,40 @@ export function initializeArchive() {
       if(e.target.closest("[data-lang-toggle]")){ e.preventDefault(); toggleLang(); return; }
       const mode=e.target.closest("[data-login-mode]");
       if(mode){ renderLogin(mode.dataset.loginMode); const first=$("#roleGrid input"); if(first) first.focus(); return; }
+      const directLoginBtn=e.target.closest("[data-direct-login]");
+      if(directLoginBtn){
+        e.preventDefault();
+        const email=directLoginBtn.dataset.email;
+        const password=directLoginBtn.dataset.password;
+        const form=$("#loginForm");
+        if(form){
+          form.email.value=email;
+          form.password.value=password;
+        }
+        const failure=$("#loginError");
+        if(failure) failure.hidden=true;
+        directLoginBtn.style.opacity="0.5";
+        directLoginBtn.style.pointerEvents="none";
+        apiJson("POST","/auth/login",{email,password})
+          .then((data)=>startSession(data.user))
+          .catch((err)=>{
+            if(failure){ failure.textContent=err.message||"Login failed."; failure.hidden=false; }
+            directLoginBtn.style.opacity="";
+            directLoginBtn.style.pointerEvents="";
+          });
+        return;
+      }
       const demoAccount=e.target.closest("[data-demo-email]");
-      if(demoAccount){ const form=$("#loginForm"); if(form){ form.email.value=demoAccount.dataset.demoEmail; form.password.value=demoAccount.dataset.demoPassword; form.querySelector("[type=submit]").focus(); } return; }
+      if(demoAccount){
+        const form=$("#loginForm");
+        if(form){
+          form.email.value=demoAccount.dataset.demoEmail;
+          form.password.value=demoAccount.dataset.demoPassword;
+          const submit=form.querySelector("[type=submit]");
+          if(submit) submit.click();
+        }
+        return;
+      }
       if(e.target.closest("[data-login-close]")){ e.preventDefault(); closeLogin(); return; }
       if(e.target.closest("[data-open-desk]")){ e.preventDefault(); openWorkspace(); return; }
       if(e.target.closest("[data-open-platform]")){ e.preventDefault(); enterWorkspace(); return; }

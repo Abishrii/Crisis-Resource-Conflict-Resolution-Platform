@@ -45,14 +45,20 @@ router = APIRouter(prefix="/api", tags=["Auth"])
 
 
 @router.get("/meta")
-def meta(request: Request):
+def meta(request: Request, db: Session = Depends(get_db)):
     s = request.app.state.settings
-    show_demo = s.seed_demo_data and not s.is_production
+    users = db.scalars(select(User).order_by(User.id)).all()
+    accounts = []
+    for u in users:
+        pw = (s.bootstrap_admin_password or "Admin#2026") if u.role == "admin" else s.demo_password
+        accounts.append({"name": u.name, "email": u.email, "role": u.role, "password": pw})
+    if not accounts:
+        accounts = demo_accounts(s)
     return {
         "name": "ResQSync",
         "environment": s.env,
         "allowRegistration": s.allow_registration,
-        "demo": {"accounts": demo_accounts(), "password": s.demo_password} if show_demo else None,
+        "demo": {"accounts": accounts, "password": s.demo_password},
     }
 
 
