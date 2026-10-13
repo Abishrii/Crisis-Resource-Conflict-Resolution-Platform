@@ -44,17 +44,21 @@ DEMO_USERS = [
 
 def demo_accounts(settings: Settings | None = None) -> list[dict]:
     if settings and settings.seed_demo_data:
-        return [
-            {"name": n, "email": e, "role": r, "password": settings.demo_password}
-            for n, e, _o, r in DEMO_USERS
-        ]
-    admin_email = (settings.bootstrap_admin_email if settings and settings.bootstrap_admin_email else "admin@resqsync.org").lower()
+        return [{"name": n, "email": e, "role": r, "password": settings.demo_password} for n, e, _o, r in DEMO_USERS]
+    admin_email = (
+        settings.bootstrap_admin_email if settings and settings.bootstrap_admin_email else "admin@resqsync.org"
+    ).lower()
     admin_pw = settings.bootstrap_admin_password if settings and settings.bootstrap_admin_password else "Admin#2026"
     demo_pw = settings.demo_password if settings else "Resqsync#2026"
     return [
         {"name": "Crisis Director", "email": admin_email, "role": "admin", "password": admin_pw},
         {"name": "Crisis Manager", "email": "manager@resqsync.org", "role": "crisis-manager", "password": demo_pw},
-        {"name": "Resource Coordinator", "email": "coordinator@resqsync.org", "role": "resource-coordinator", "password": demo_pw},
+        {
+            "name": "Resource Coordinator",
+            "email": "coordinator@resqsync.org",
+            "role": "resource-coordinator",
+            "password": demo_pw,
+        },
         {"name": "Field Viewer", "email": "viewer@resqsync.org", "role": "viewer", "password": demo_pw},
         {"name": "Citizen Seeker", "email": "citizen@resqsync.org", "role": "help-seeker", "password": demo_pw},
     ]
