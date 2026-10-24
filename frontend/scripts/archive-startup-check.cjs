@@ -88,5 +88,12 @@ function check({ compiledEntry = false, storageDenied = false, savedData = null,
   } finally { dom.window.close(); }
 }
 
-for (const options of [{},{ storageDenied:true },{ savedData:"invalid-json" },{ legacyMedia:true },{ reducedMotion:true },{ compiledEntry:true },{ compiledEntry:true,storageDenied:true }]) check(options);
+for (const options of [{},{ storageDenied:true },{ savedData:"invalid-json" },{ legacyMedia:true },{ reducedMotion:true },{ compiledEntry:true },{ compiledEntry:true,storageDenied:true }]) {
+  try {
+    check(options);
+  } catch (error) {
+    error.message += ` [case: ${JSON.stringify(options)}]`;
+    throw error;
+  }
+}
 console.log("[archive-check] PASS: intro, skip, replay, sign-in gate, photo search, light mode, denied storage and remount cleanup.");
