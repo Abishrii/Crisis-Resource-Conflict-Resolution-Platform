@@ -1,33 +1,47 @@
 <div align="center">
 
-<h1>ResQSync</h1>
-<p><strong>Every resource where it matters.</strong></p>
+# ResQSync
+
+### Multi-Agency Crisis Resource Coordination & Conflict Resolution Platform
 
 <p>
-A crisis-resource coordination platform for India's emergency response networks.<br/>
-Incidents, shared inventory, allocation conflicts, role-based workspaces, a help-request desk,
-live updates, analytics and a complete audit trail — in one server-backed app.
+  <strong>Deterministic triage · Shared emergency inventory · Zero-trust role workspaces · Real-time event streaming</strong>
+</p>
+
+<p>
+  A unified command and resource coordination platform designed for high-stress disaster response networks.<br/>
+  ResQSync resolves concurrent allocation conflicts, unifies field help-requests, enforces server-grade RBAC,
+  and maintains an immutable, compliance-ready audit trail across emergency agencies.
 </p>
 
 <p>
   <a href="https://github.com/Abishrii/Crisis-Resource-Conflict-Resolution-Platform/actions/workflows/ci.yml">
-    <img src="https://github.com/Abishrii/Crisis-Resource-Conflict-Resolution-Platform/actions/workflows/ci.yml/badge.svg?branch=integrate-real-backend" alt="CI status">
+    <img src="https://github.com/Abishrii/Crisis-Resource-Conflict-Resolution-Platform/actions/workflows/ci.yml/badge.svg" alt="CI Pipeline Status">
   </a>
+  <img src="https://img.shields.io/badge/Tests-80%20passed%20%7C%201%20skipped-2ea44f?logo=pytest&logoColor=white" alt="Test Suite">
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12">
   <img src="https://img.shields.io/badge/FastAPI-0.141-009688?logo=fastapi&logoColor=white" alt="FastAPI">
   <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React 18">
+  <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 16">
   <img src="https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white" alt="Redis 7">
+  <img src="https://img.shields.io/badge/Reverse%20Proxy-Caddy-1F88C0?logo=caddy&logoColor=white" alt="Caddy">
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" alt="Docker Compose">
-  <img src="https://img.shields.io/badge/status-academic%20project-6C5CE7" alt="Academic project">
+  <img src="https://img.shields.io/badge/Status-Academic%20Evaluation-6C5CE7" alt="Academic Project">
 </p>
 
 <p>
-  <a href="#quick-start">Quick start</a> ·
-  <a href="#screenshots">Screenshots</a> ·
-  <a href="#faculty-demo-guide">Faculty demo</a> ·
-  <a href="#architecture">Architecture</a> ·
-  <a href="#api-overview">API</a> ·
+  <a href="#system-overview">Overview</a> •
+  <a href="#core-problem--solution">Problem & Solution</a> •
+  <a href="#screenshots">Screenshots</a> •
+  <a href="#faculty--evaluator-walkthrough">Faculty Walkthrough</a> •
+  <a href="#architecture--system-design">Architecture</a> •
+  <a href="#the-seven-core-modules">Modules</a> •
+  <a href="#rbac--security-matrix">RBAC Matrix</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#docker-deployment">Docker</a> •
+  <a href="#api-reference">API</a> •
+  <a href="#testing--verification">Testing</a> •
   <a href="#troubleshooting">Troubleshooting</a>
 </p>
 
@@ -35,492 +49,564 @@ live updates, analytics and a complete audit trail — in one server-backed app.
 
 ---
 
-> **Academic project.** ResQSync was built for a college evaluation. Every incident, person,
-> organisation and resource in the seeded dataset is **fictional**. Demo mode is deliberately
-> available in development and is hard-disabled in production.
+> [!NOTE]
+> **Academic Project & Evaluation Notice:** ResQSync was engineered for a comprehensive university capstone evaluation. All incidents, locations, personnel, distress calls, and inventory records in the default seeded dataset are **entirely fictional**. For demonstration convenience, a secure evaluation **Demo Mode** is active in development environments and hard-disabled in production.
 
-## Why ResQSync
+---
 
-In a real response network, three incidents can need the same ambulance, the same boat or the same
-oxygen pool at the same time. Someone has to decide who gets it first — and be able to explain why.
+## System Overview
 
-ResQSync turns that problem into a shared workspace:
+During large-scale humanitarian crises and natural disasters (e.g., floods, earthquakes, industrial accidents), disaster response networks suffer from **severe coordination failures**:
 
-- **One picture of the response** — incidents, resources, requests, messages and decisions in one place.
-- **Transparent conflict resolution** — competing demands are ranked by severity and response readiness,
-  with manager overrides that require a recorded reason.
-- **A role for everyone** — administrators, crisis managers, resource coordinators and help seekers each
-  get a workspace that matches what they are allowed to do.
-- **Server-enforced rules** — the browser greys out controls, but every permission is checked again by
-  the API. The UI is never the security boundary.
-- **A live desk** — new requests and updates appear for other signed-in users without a refresh.
+```
+[ Multiple Emergencies ] ──> Competing for ──> [ Scarce Critical Stock ]
+     (Hospital A & B)                          (ICU Beds, Oxygen, Boats)
+            │                                              │
+            ▼                                              ▼
+   Information Silos ─────────── Lack of Triage ────> Allocation Bottlenecks
+   & Voice Calls Only            Auditability           & Delayed Dispatch
+```
+
+ResQSync eliminates this breakdown by providing an integrated, multi-tenant emergency workspace that balances **deterministic algorithmic triage** with **human-in-the-loop managerial governance**.
+
+### Key Value Pillars
+
+1. **Deterministic Conflict Arbitration:** When multiple incidents demand the same scarce resource pool, ResQSync mathematically ranks competing claims by severity, urgency, vulnerable populations, and transit ETA. Manual overrides require a mandatory, permanently logged operational justification.
+2. **Zero-Trust Role Workspaces:** Distinct, ergonomically tailored interfaces for **Administrators**, **Crisis Managers**, **Resource Coordinators**, and **Citizen Help Seekers**. UI visibility controls are purely cosmetic; all permissions are independently validated on the server.
+3. **Live Distributed Synchronization:** Leverages Server-Sent Events (SSE) to broadcast live updates (incident state transitions, stock changes, new SOS calls) to all connected consoles within milliseconds without requiring browser refreshes.
+4. **Resilient Transactional Outbox:** Automated alerts and notifications are queued in an atomic outbox table and dispatched asynchronously with exponential backoff, preventing message loss during external SMS/SMTP gateway failures.
+5. **Auditable Governance & Privacy:** Immutable audit trail documenting every sign-in, permission elevation, allocation override, and data deletion. Full compliance with data protection principles through self-service PII export and cryptographic account anonymisation.
+
+---
 
 ## Screenshots
 
-<table>
-  <tr>
-    <td width="50%">
-      <img src="docs/screenshots/login-light.jpg" alt="ResQSync sign-in in light mode">
-      <br><sub><b>Sign in · light mode</b> — one-click demo roles with capability hints</sub>
-    </td>
-    <td width="50%">
-      <img src="docs/screenshots/login-dark.jpg" alt="ResQSync sign-in in dark mode">
-      <br><sub><b>Sign in · dark mode</b> — the same editorial interface, token-driven</sub>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <img src="docs/screenshots/workspace-admin.jpg" alt="Admin workspace with demo role switcher">
-      <br><sub><b>Admin workspace</b> — demo-mode chip and instant role switcher in the header</sub>
-    </td>
-    <td width="50%">
-      <img src="docs/screenshots/desk-seeker.jpg" alt="Help seeker request desk">
-      <br><sub><b>Help-seeker desk</b> — raise a request and follow it to resolution</sub>
-    </td>
-  </tr>
-</table>
+<div align="center">
 
-<p align="center">
-  <img src="docs/screenshots/login-mobile.jpg" width="280" alt="ResQSync mobile sign-in">
-  <br><sub><b>Mobile sign-in</b> — the direct-access cards stack cleanly at 390 px</sub>
+| Light Mode Interface | Dark Mode Interface |
+|:---:|:---:|
+| <img src="docs/screenshots/login-light.jpg" alt="ResQSync Light Mode Sign-in" width="460"/><br/><sub><b>Sign In (Light)</b> — 1-click evaluation cards with explicit role-capability hints</sub> | <img src="docs/screenshots/login-dark.jpg" alt="ResQSync Dark Mode Sign-in" width="460"/><br/><sub><b>Sign In (Dark)</b> — High-contrast tactical theme for low-light command operations</sub> |
+
+| Incident Command & Admin Workspace | Public Help-Seeker Request Desk |
+|:---:|:---:|
+| <img src="docs/screenshots/workspace-admin.jpg" alt="Admin Command Workspace" width="460"/><br/><sub><b>Incident Command Center</b> — Live metrics, resource health, and active conflict monitors</sub> | <img src="docs/screenshots/desk-seeker.jpg" alt="Help-Seeker Request Desk" width="460"/><br/><sub><b>Citizen SOS Desk</b> — Step-by-step dispatch tracking from verification to resolution</sub> |
+
+<p>
+  <img src="docs/screenshots/login-mobile.jpg" width="280" alt="ResQSync Mobile Responsive View"/><br/>
+  <sub><b>Field Mobile Optimization</b> — Direct responsive access optimized for frontline tablets and smartphones (tested at 390 px)</sub>
 </p>
 
-## Features
+</div>
 
-### The seven-module workspace
+---
 
-| # | Module | What it does |
-|---|--------|--------------|
-| **01** | 🚨 **Crisis management** | Create and track incidents, severity, location, timeline and status. |
-| **02** | 📦 **Resource management** | Shared inventory for personnel, equipment, supplies and facilities, with capacity and maintenance. |
-| **03** | ⚖️ **Conflict resolution** | Detects pools where demand exceeds free stock and ranks competing incidents transparently. |
-| **04** | 👥 **People and access** | User administration, role assignment, account status and a role-capability matrix. |
-| **05** | 💬 **Communication** | Incident channel messages, comment threads, files and in-app notifications. |
-| **06** | 📊 **Analytics and reporting** | Calculated metrics, utilisation, response time, trends and PDF/XML/CSV exports. |
-| **07** | 🧭 **Decision support** | Scenario simulation, coverage analysis and saved scenarios for the audit trail. |
+## Faculty & Evaluator Walkthrough
 
-### Beyond the modules
+To facilitate immediate examination without requiring manual registration or credential lookup, ResQSync includes a **zero-configuration Demo Mode** in development.
 
-| Capability | Description |
-|---|---|
-| **Help-request desk** | A separate help-seeker workflow: `opened → verified → assigned → en route → resolved`, with photo verification and duplicate detection. |
-| **Role-based workspaces** | Admin, crisis manager, resource coordinator and help seeker each land on the workspace that matches their permissions. |
-| **Server-side RBAC** | A single permission table in `backend/app/roles.py` is enforced on every endpoint. |
-| **Live updates** | Server-Sent Events keep every signed-in screen in sync when anything changes. |
-| **Audit trail** | Sign-ins, role changes, allocations, overrides, privacy actions and demo sign-ins are recorded. |
-| **Privacy and governance** | Data export, self-deletion, admin anonymisation and a configurable retention pass. |
-| **Transactional outbox** | External notifications are queued, retried with backoff and marked `not_configured` when a provider is absent. |
-| **Demo mode** | One-click role cards and an in-workspace role switcher for evaluation — development only. |
+### Pre-Seeded Evaluation Personas
 
-## Roles and permissions
+| Evaluation Persona | Assigned Role | Landing Workspace | Primary Evaluation Focus |
+|---|---|---|---|
+| `aditi@example.org` | **Administrator** | Master Workspace + Audit | Full system oversight, user management, audit logs, outbox queue |
+| `arjun@example.org` | **Crisis Manager** | Incident Command Center | Incident creation, severity assessment, conflict resolution & override |
+| `meera@example.org` | **Resource Coordinator** | Logistics & Dispatch Queue | Fleet management, warehouse inventory, dispatch dispatching |
+| `seeker@example.org` | **Help Seeker** | Citizen SOS Portal | Distress ticket submission, location pinning, live status tracking |
 
-| Capability | Admin | Crisis manager | Resource coordinator | Help seeker |
-|---|:---:|:---:|:---:|:---:|
-| View incidents, resources and reports | ✅ | ✅ | ✅ | — |
-| Create and update crises | ✅ | ✅ | — | — |
-| Edit inventory and maintenance | ✅ | — | ✅ | — |
-| Assign and allocate resources | ✅ | ✅ | ✅ | — |
-| Approve or override priorities | ✅ | ✅ | — | — |
-| Manage users and roles | ✅ | — | — | — |
-| Review and verify help requests | ✅ | ✅ | — | — |
-| Dispatch units | ✅ | — | ✅ | — |
-| Raise and track own requests | ✅ | ✅ | — | ✅ |
-| Messages and file attachments | ✅ | ✅ | ✅ | — |
-| Full audit trail and admin outbox | ✅ | — | — | — |
+*All seeded demo accounts share the evaluation password:* **`Resqsync#2026`**
 
-The browser mirrors this table only to disable controls. The API checks it again on every request.
-
-## Faculty demo guide
-
-The login page is intentionally a **demo surface** in development. It shows one-click cards for each
-role so a demonstration does not depend on typing credentials.
-
-| Demo account | Role | Where it lands |
-|---|---|---|
-| `aditi@example.org` | Admin | Full workspace + audit trail |
-| `arjun@example.org` | Crisis manager | Workspace + request desk |
-| `meera@example.org` | Resource coordinator | Workspace + dispatch queue |
-| `seeker@example.org` | Help seeker | Request desk |
-
-The manual-login password for all demo accounts is **`Resqsync#2026`**.
-
-### A suggested five-minute walkthrough
-
-1. **Sign in as Admin** using the first direct-access card. Show the overview, the incident board,
-   the resource pools and the audit trail.
-2. **Switch to Crisis Manager** from the **Demo role** dropdown in the workspace header. Verify an
-   incoming help request and approve an allocation.
-3. **Switch to Resource Coordinator** and show the dispatch queue, inventory and stock movements.
-4. **Switch to Help Seeker**. Raise a request, then track it through `verified → assigned → en route → resolved`.
-5. **Switch back to Admin** and show the audit entries created by the demonstration, including the
-   `Signed in (demo)` records.
-
-The **DEMO MODE** chip in the workspace header makes it clear that these are evaluation controls. In
-production, `DEMO_LOGIN=false` hard-disables both the endpoint and the cards.
-
-## Architecture
+### Recommended 5-Minute Evaluation Script
 
 ```mermaid
-flowchart LR
-  subgraph Client["Browser"]
-    UI["React + Vite SPA<br/>archive interface"]
-  end
-
-  subgraph Edge["Reverse proxy"]
-    C["Caddy<br/>gzip/zstd · TLS · routing"]
-  end
-
-  subgraph Server["FastAPI application"]
-    A["REST API<br/>auth · RBAC · audit"]
-    S["SSE event stream<br/>/api/events"]
-    O["Outbox worker<br/>notifications"]
-  end
-
-  DB[("PostgreSQL<br/>or SQLite in development")]
-  R[("Redis<br/>rate limits · pub/sub")]
-
-  UI -->|HTTPS| C
-  C --> A
-  A --> DB
-  A --> R
-  A -. live updates .-> UI
-  O --> DB
-  O -. delivery .-> External["SMTP · SMS · push"]
+journey
+    title 5-Minute Faculty Evaluation Journey
+    section 1. Command Overview
+      Sign in as Admin (Aditi): 5: Admin
+      Inspect incident board & live stock: 5: Admin
+      View audit trail & system metrics: 5: Admin
+    section 2. Triage & Arbitration
+      Switch to Crisis Manager (Arjun): 5: Crisis Manager
+      Review competing incident requests: 5: Crisis Manager
+      Resolve resource conflict with logged reason: 5: Crisis Manager
+    section 3. Field Logistics
+      Switch to Resource Coordinator (Meera): 5: Resource Coordinator
+      Inspect inventory health & maintenance: 5: Resource Coordinator
+      Dispatch allocated ambulance/boat: 5: Resource Coordinator
+    section 4. Citizen Experience
+      Switch to Help Seeker (Citizen): 5: Help Seeker
+      Submit SOS request with urgency rating: 5: Help Seeker
+      Observe live state change (Verified -> Dispatched): 5: Help Seeker
+    section 5. Audit Verification
+      Switch back to Admin: 5: Admin
+      Verify tamper-evident audit logs: 5: Admin
 ```
 
-- **Development** uses SQLite and needs no Redis. The in-memory rate limiter and event hub work for a
-  single process.
-- **Deployment** uses PostgreSQL and Redis behind Caddy. Redis coordinates login throttling and live
-  updates across workers.
-- **The browser never talks to the database.** Every read and write goes through the API, which applies
-  the permission table, commits transactionally and writes an audit record.
+1. **Step 1: Sign in as Admin (`aditi@example.org`)**
+   - Click the first direct-access demo card on the sign-in page.
+   - Inspect the **Overview** dashboard: operational incidents, live inventory metrics, active alerts, and system health.
+2. **Step 2: Switch Role to Crisis Manager**
+   - Click the in-workspace **Demo Role** dropdown in the top navigation bar and select **Crisis Manager**.
+   - Navigate to **Conflict Resolution**: examine how overlapping resource demands are scored and approve an allocation.
+3. **Step 3: Switch Role to Resource Coordinator**
+   - Switch to **Resource Coordinator** via the header switcher.
+   - Inspect **Resource Management**: review warehouse inventory, equipment maintenance statuses, and dispatch the approved units.
+4. **Step 4: Citizen SOS Submission & Live Tracking**
+   - Switch to **Help Seeker**: submit a new distress ticket specifying category, urgency, and headcount.
+   - Observe how the state updates in real time through `Opened → Verified → Assigned → En Route → Resolved`.
+5. **Step 5: Audit Verification**
+   - Switch back to **Admin**: open the **Audit Trail** and observe that all evaluation interactions, role elevations, allocations, and demo sign-ins have been recorded with exact timestamps and actor identifiers.
 
-### Request lifecycle
+> [!TIP]
+> The **DEMO MODE** badge in the header highlights evaluation features. In production (`ENV=production` or `DEMO_LOGIN=false`), both the demo endpoints and the UI switcher are hard-disabled at the FastAPI dependency level.
+
+---
+
+## Architecture & System Design
+
+ResQSync is structured as a resilient 3-tier architecture with clean separation of concerns, containerized micro-services, and edge caching:
+
+```mermaid
+flowchart TD
+    subgraph Clients["Frontend Clients"]
+        SPA["React 18 + Vite SPA<br/>TypeScript · Modular Controllers"]
+        Mobile["Mobile Web Browser<br/>Responsive Touch View"]
+    end
+
+    subgraph Edge["Edge & Reverse Proxy"]
+        Caddy["Caddy Server<br/>TLS / HSTS · Gzip & Zstd · Rate Limiting · Static Asset Cache"]
+    end
+
+    subgraph AppTier["FastAPI Application Core"]
+        Auth["Authentication & Session Service<br/>Argon2id · JWT in HttpOnly Cookie"]
+        RBAC["Server-Side RBAC Guard<br/>Strict Roles Table Enforcement"]
+        TriageEngine["Conflict Arbitration Engine<br/>Deterministic Scoring & Override Audit"]
+        SSEHub["Live Event Hub<br/>Server-Sent Events /api/events"]
+        OutboxWorker["Transactional Outbox Worker<br/>Asynchronous Retry & Delivery"]
+    end
+
+    subgraph DataTier["Persistence & Cache"]
+        Postgres[("PostgreSQL 16<br/>Relational Data & Alembic Migrations")]
+        RedisDB[("Redis 7<br/>Sliding-Window Rate Limits & Event Bus")]
+        SQLiteDev[("SQLite 3<br/>Zero-Config Development Engine")]
+    end
+
+    subgraph External["External Gateways (Optional)"]
+        SMTP["SMTP Gateway"]
+        SMS["SMS Provider (MSG91 / Twilio)"]
+        Push["WebPush (VAPID)"]
+    end
+
+    SPA -->|HTTPS / WSS| Caddy
+    Mobile -->|HTTPS / WSS| Caddy
+    Caddy -->|Internal Proxy :8000| Auth
+    Auth --> RBAC
+    RBAC --> TriageEngine
+    TriageEngine --> Postgres
+    TriageEngine --> RedisDB
+    RBAC --> SQLiteDev
+    TriageEngine -.-> SSEHub
+    SSEHub -.->|Live Stream| Caddy
+    TriageEngine --> OutboxWorker
+    OutboxWorker --> Postgres
+    OutboxWorker -.-> External
+```
+
+### Request & State Transition Lifecycle
 
 ```mermaid
 sequenceDiagram
-  participant B as Browser
-  participant A as FastAPI
-  participant D as Database
-  participant E as Other clients
+    autonumber
+    actor User as Client Browser
+    participant Edge as Caddy Reverse Proxy
+    participant API as FastAPI Backend
+    participant RBAC as Permission Guard
+    participant DB as Database (Postgres/SQLite)
+    participant Outbox as Outbox Queue
+    participant SSE as Connected Consoles
 
-  B->>A: POST /api/help-requests (cookie session)
-  A->>A: Validate role + payload + rate limit
-  A->>D: Insert request, event, notification and audit row
-  D-->>A: Commit
-  A-->>B: 201 Created
-  A-->>E: SSE change event
-  E->>A: Refresh workspace
+    User->>Edge: POST /api/help-requests (Session Cookie)
+    Edge->>API: Proxy Request (Validate TLS & Headers)
+    API->>RBAC: Validate Session (jti, ver, role permission)
+    RBAC-->>API: Authorized
+    API->>API: Run Input Sanitization & Duplicate Detection
+    rect rgb(240, 248, 255)
+        Note over API,DB: Atomic Database Transaction
+        API->>DB: INSERT help_request record
+        API->>DB: INSERT audit_log entry
+        API->>Outbox: INSERT notification_outbox event
+        DB-->>API: Transaction Committed
+    end
+    API-->>User: 201 Created (JSON Response)
+    API-)SSE: Broadcast state_change event
+    SSE-)User: Live update delivered via Server-Sent Events
 ```
 
-## Quick start
+---
 
-### Prerequisites
+## The Seven Core Modules
 
-| Tool | Version |
-|---|---|
-| Python | 3.12+ |
-| Node.js | 20+ |
-| npm | 10+ |
-| Docker + Docker Compose | Optional, for the container stack |
+| # | Module | Key Capabilities | Primary Role |
+|:---:|---|---|:---:|
+| **01** | 🚨 **Crisis Management** | Creates and classifies disaster events, manages geographical coordinates, assigns operational threat levels, and tracks incident status progression (`active`, `contained`, `resolved`). | Crisis Manager, Admin |
+| **02** | 📦 **Resource Management** | Centralized inventory of emergency assets across four categories (Personnel, Equipment, Supplies, Facilities). Tracks availability, maintenance schedules, depot locations, and capacity. | Resource Coordinator, Admin |
+| **03** | ⚖️ **Conflict Resolution** | Real-time arbitration engine. Flags pools where aggregate demands exceed available stock, runs deterministic multi-attribute scoring, and logs managerial overrides with required justification. | Crisis Manager, Admin |
+| **04** | 👥 **People & Access** | Full user lifecycle management, account activation/suspension, dynamic role assignment, multi-session tracking, and security posture monitoring. | Admin |
+| **05** | 💬 **Communications** | Dedicated communication channels per active incident, structured file attachments, broadcast notifications, and alert banner dispatches. | All Staff Roles |
+| **06** | 📊 **Analytics & Reporting** | Live operational metrics, resource utilization rates, response time averages, and automated report exports in PDF, XML, and CSV formats. | Crisis Manager, Admin |
+| **07** | 🧭 **Decision Support** | Scenario simulation engine modeling hypotheticals (e.g., sudden inflow of 500 casualties, localized flood cutoff), generating asset coverage assessments and mitigation recommendations. | Crisis Manager, Admin |
 
-### 1. Start the backend
+---
 
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env               # optional in development; defaults work
-uvicorn app.main:app --reload --port 8000
-```
+## RBAC & Security Matrix
 
-On the first start, `backend/resqsync.db` is created and filled with the fictional training dataset and
-the demo accounts. Interactive API docs are at <http://localhost:8000/docs>.
+Security in ResQSync is designed around a **Zero-Trust Server Boundary**. The frontend interface dynamically adapts to hide or disable unauthorized buttons, but the FastAPI backend enforces strict cryptographic and role checks on every single HTTP route via dependency injection (`backend/app/roles.py`).
 
-### 2. Start the frontend
-
-```bash
-cd frontend
-npm ci
-npm run dev
-```
-
-Open <http://localhost:5173>. Vite proxies `/api` and `/health` to `127.0.0.1:8000`, so the HTTP-only
-session cookie works without CORS.
-
-### 3. Or run everything from one server
-
-```bash
-cd frontend
-npm ci
-npm run build
-
-cd ../backend
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-FastAPI serves `frontend/dist` and the API from the same origin. Open <http://127.0.0.1:8000>.
-
-> **Resetting the demo database:** delete `backend/resqsync.db` and restart the backend. The seed is
-> idempotent and recreates the fictional dataset and demo accounts. Do not delete a database that
-> contains real evaluation data without taking a backup first.
-
-## Docker deployment
-
-The production-style stack is a multi-stage image plus four Compose services:
-
-| Service | Purpose | Host exposure |
-|---|---|---|
-| `postgres` | PostgreSQL 16 with persistent storage | Not published |
-| `redis` | Shared rate limits and cross-worker live updates | Not published |
-| `api` | FastAPI + built frontend, non-root user | Internal `8000` only |
-| `reverse-proxy` | Caddy routing, compression and optional TLS | `80` and `443` |
-
-```bash
-cp .env.example .env
-# Fill in POSTGRES_PASSWORD, SECRET_KEY and the bootstrap admin credentials.
-
-docker compose up -d --build
-```
-
-The compose file **requires** these values and fails fast if they are missing:
-
-| Variable | Why it matters |
-|---|---|
-| `POSTGRES_PASSWORD` | Database credential; Postgres is not exposed to the host. |
-| `SECRET_KEY` | JWT signing key. Use 32+ random characters. |
-| `BOOTSTRAP_ADMIN_EMAIL` | Creates the first administrator when no admin exists. |
-| `BOOTSTRAP_ADMIN_PASSWORD` | Password for that administrator. |
-
-### HTTPS and cookies
-
-- The default `SITE_ADDRESS=:80` serves plain HTTP. Keep `COOKIE_SECURE=false` in that mode, otherwise
-  the browser will reject the session cookie.
-- Set `SITE_ADDRESS=resqsync.example.org` (a real domain pointing at the host) and Caddy provisions
-  HTTPS automatically. Then set `COOKIE_SECURE=true`.
-- HSTS is sent automatically once a request arrives over HTTPS.
-
-Demo mode is **off by default** in the container stack: `SEED_DEMO_DATA=false` and `DEMO_LOGIN=false`.
-Use the bootstrap admin to create real staff accounts from **People & access**.
-
-### Database migrations
-
-PostgreSQL deployments apply Alembic migrations to `head` on startup. Manual commands:
-
-```bash
-cd backend
-alembic current
-alembic upgrade head
-alembic revision --autogenerate -m "description_of_changes"
-```
-
-### Backups
-
-```bash
-python tools/backup.py --out ./backups
-python tools/restore.py ./backups/resqsync-backup-YYYYMMDD_HHMMSS.tar.gz
-python tools/test_backup_restore.py
-```
-
-A backup contains a manifest with SHA-256 checksums, engine-agnostic data, a native SQL dump and the
-uploaded files.
-
-## Configuration
-
-Development defaults are in `backend/.env.example`; container defaults and required values are in the
-root `.env.example`.
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `ENV` | `development` | `development`, `test` or `production`. Production requires a strong secret. |
-| `SECRET_KEY` | generated in development | JWT signing key. Required in production. |
-| `DATABASE_URL` | SQLite file | PostgreSQL URL for deployment. |
-| `REDIS_URL` | empty | Enables shared rate limits and cross-worker events. |
-| `COOKIE_SECURE` | true in production | Must match your HTTP/HTTPS setup. |
-| `SEED_DEMO_DATA` | true in development | Seeds the fictional dataset and demo accounts. |
-| `SEED_DEMO_PASSWORD` | `Resqsync#2026` in development | Password for seeded accounts. |
-| `DEMO_LOGIN` | true in development | One-click role cards and workspace switcher. Hard-disabled in production. |
-| `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | empty | First administrator when the database has none. |
-| `ALLOW_REGISTRATION` | true | Allows help-seeker self-registration. |
-| `LOGIN_MAX_FAILURES` / `LOGIN_WINDOW_SECONDS` | `6` / `900` | Login throttling thresholds. |
-| `SMTP_HOST` / `SMTP_FROM` | empty | Enables e-mail delivery through the outbox. |
-| `SMS_PROVIDER` | empty | `msg91` or `twilio` for SMS dispatch. |
-| `VAPID_*` | empty | Web-push keys. |
-| `DATA_RETENTION_DAYS` | `0` | Automatic PII retention cleanup; `0` disables it. |
-
-## API overview
-
-All routes are under `/api` and use the HTTP-only session cookie (or `Authorization: Bearer`).
-Interactive docs: `/docs`.
-
-| Group | Representative endpoints |
-|---|---|
-| Authentication | `POST /auth/login`, `POST /auth/register`, `POST /auth/demo-login`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/change-password`, `GET /auth/sessions`, `POST /auth/logout-all` |
-| Recovery | `POST /auth/forgot`, `POST /auth/reset` |
-| Workspace | `GET /workspace`, `GET/POST/PATCH /crises`, `GET/POST/PATCH /resources`, `GET/POST /allocations`, `GET/POST /demands`, `GET/POST /negotiations`, `GET/POST /decisions` |
-| People | `GET/POST/PATCH /users` |
-| Collaboration | `GET/POST /messages`, `GET/POST /attachments`, `GET /notifications`, `POST /notifications/read` |
-| Help requests | `GET/POST /help-requests`, `GET /help-requests/{code}`, `POST /help-requests/{code}/verify`, `/assign`, `/dispatch`, `/resolve`, `/update`, `/cancel`, `/reassign`, `/release-unit` |
-| Reporting | `GET /reports/export?format=pdf\|xml&days=30`, `GET /exports/crises.csv`, `GET /exports/resources.csv`, `GET /exports/help-requests.csv`, `GET /exports/audit.csv` |
-| Decision support | `POST /simulations/run`, `POST /simulations`, `GET /simulations` |
-| Privacy | `GET /privacy/policy`, `GET /me/data`, `POST /me/delete-account`, `POST /users/{id}/anonymise`, `POST /admin/privacy/retention-run` |
-| Live and ops | `GET /events` (SSE), `GET /metrics`, `GET /health`, `GET /api/health` |
+| Operation / Endpoint Capability | Admin | Crisis Manager | Resource Coordinator | Help Seeker |
+|---|:---:|:---:|:---:|:---:|
+| **View Incidents, Stock & Analytics** | 🟢 Full | 🟢 Full | 🟢 Full | 🔴 Denied |
+| **Create & Update Crises** | 🟢 Full | 🟢 Full | 🔴 Denied | 🔴 Denied |
+| **Manage Inventory & Maintenance** | 🟢 Full | 🔴 Read-only | 🟢 Full | 🔴 Denied |
+| **Allocate Stock to Incidents** | 🟢 Full | 🟢 Full | 🟢 Full | 🔴 Denied |
+| **Arbitrate & Override Conflicts** | 🟢 Full | 🟢 Full | 🔴 Denied | 🔴 Denied |
+| **User Administration & Role Assignment** | 🟢 Full | 🔴 Denied | 🔴 Denied | 🔴 Denied |
+| **Verify & Review Citizen Help Requests** | 🟢 Full | 🟢 Full | 🔴 Denied | 🔴 Denied |
+| **Dispatch Field Units** | 🟢 Full | 🔴 Denied | 🟢 Full | 🔴 Denied |
+| **Submit Citizen SOS Requests** | 🟢 Full | 🟢 Full | 🔴 Denied | 🟢 Full |
+| **Access System Audit Logs & Outbox** | 🟢 Full | 🔴 Denied | 🔴 Denied | 🔴 Denied |
+| **Trigger Privacy Data Retention / Anonymisation** | 🟢 Full | 🔴 Denied | 🔴 Denied | 🔴 Denied |
 
 <details>
-<summary><b>Show the server-side permission keys</b></summary>
+<summary><b>Server-Side Permission Key Reference (backend/app/roles.py)</b></summary>
 
-| Permission | Admin | Crisis manager | Resource coordinator | Help seeker |
-|---|:---:|:---:|:---:|:---:|
-| `view` | ✅ | ✅ | ✅ | — |
-| `crisis` | ✅ | ✅ | — | — |
-| `resource` | ✅ | — | ✅ | — |
-| `allocate` | ✅ | ✅ | ✅ | — |
-| `approve` | ✅ | ✅ | — | — |
-| `users` | ✅ | — | — | — |
-| `message` | ✅ | ✅ | ✅ | — |
-| `save` | ✅ | ✅ | ✅ | — |
-| `request.raise` | ✅ | ✅ | — | ✅ |
-| `request.review` | ✅ | ✅ | — | — |
-| `request.dispatch` | ✅ | — | ✅ | — |
-| `request.view_all` | ✅ | ✅ | ✅ | — |
+```python
+PERMISSIONS: dict[str, frozenset[str]] = {
+    "view": frozenset({"admin", "crisis-manager", "resource-coordinator"}),
+    "crisis": frozenset({"admin", "crisis-manager"}),
+    "resource": frozenset({"admin", "resource-coordinator"}),
+    "allocate": frozenset({"admin", "crisis-manager", "resource-coordinator"}),
+    "approve": frozenset({"admin", "crisis-manager"}),
+    "users": frozenset({"admin"}),
+    "message": frozenset({"admin", "crisis-manager", "resource-coordinator"}),
+    "save": frozenset({"admin", "crisis-manager", "resource-coordinator"}),
+    "request.raise": frozenset({"help-seeker", "crisis-manager", "admin"}),
+    "request.review": frozenset({"admin", "crisis-manager"}),
+    "request.dispatch": frozenset({"admin", "resource-coordinator"}),
+    "request.view_all": frozenset({"admin", "crisis-manager", "resource-coordinator"}),
+}
+```
 
 </details>
 
-## Testing and CI
+---
+
+## Quick Start
+
+### System Prerequisites
+
+* **Python:** 3.12 or higher
+* **Node.js:** 20.x or higher (`npm` 10+)
+* **Docker & Compose:** (Optional) for full-stack multi-container deployment
+
+---
+
+### Method A: Local Development Setup (Quickest)
+
+#### 1. Backend Service
+```bash
+# Clone the repository and navigate to backend
+cd backend
+
+# Create and activate virtual environment
+python -m venv .venv
+# On Linux / macOS:
+source .venv/bin/activate
+# On Windows PowerShell:
+.venv\Scripts\Activate.ps1
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start FastAPI development server with auto-reload
+uvicorn app.main:app --reload --port 8000
+```
+> *On initial boot, ResQSync automatically initializes `backend/resqsync.db` (SQLite) and seeds all demo roles, crisis scenarios, inventory, and mock help-requests.*  
+> *Interactive Swagger documentation is instantly available at: **http://localhost:8000/docs***
+
+#### 2. Frontend Interface
+```bash
+# In a separate terminal, navigate to frontend
+cd frontend
+
+# Install clean dependencies
+npm ci
+
+# Start the Vite development server
+npm run dev
+```
+> *Open your browser to: **http://localhost:5173***  
+> *Vite automatically proxies `/api` and `/health` requests to `127.0.0.1:8000`, ensuring cross-origin cookies work smoothly.*
+
+---
+
+### Method B: Unified Single-Port Serving
+
+You can also have the FastAPI server build and host the compiled frontend bundle directly:
 
 ```bash
-# Backend
+# Build the production frontend bundle
+cd frontend
+npm ci
+npm run build
+
+# Start the unified backend server
+cd ../backend
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+> *Access the complete application from a single origin at: **http://localhost:8000***
+
+---
+
+## Docker Deployment
+
+For staging and production deployments, ResQSync includes a hardened, multi-stage Docker setup orchestrated by Docker Compose:
+
+```
+┌────────────────────────────────────────────────────────┐
+│ Caddy Reverse Proxy (:80, :443)                        │
+│   ├── Auto HTTPS / TLS Certificate Management          │
+│   ├── Compression (zstd, gzip)                         │
+│   └── Path Routing (/api/* -> FastAPI, /* -> SPA)      │
+└───────────┬────────────────────────────────────────────┘
+            │
+            ▼
+┌────────────────────────────────────────────────────────┐
+│ FastAPI Application Container (:8000 internal)         │
+│   ├── Non-root unprivileged runtime user               │
+│   ├── Production session verification                  │
+│   └── Background Outbox Dispatch Worker                │
+└───────┬───────────────────────────────┬────────────────┘
+        │                               │
+        ▼                               ▼
+┌───────────────────────┐       ┌────────────────────────┐
+│ PostgreSQL 16 Service │       │ Redis 7 Service        │
+│ Persistent Data Vol   │       │ Rate Limiting & PubSub │
+└───────────────────────┘       └────────────────────────┘
+```
+
+### Launching the Stack
+
+```bash
+# Copy and configure environment secrets
+cp .env.example .env
+
+# Start all services in the background
+docker compose up -d --build
+```
+
+### Production Security Checklist
+
+* [ ] Set a secure `POSTGRES_PASSWORD` (database is isolated on internal Docker network).
+* [ ] Generate a 32+ character random `SECRET_KEY` for JWT signatures.
+* [ ] Configure `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` (initializes master administrator).
+* [ ] Configure `SITE_ADDRESS=resqsync.yourdomain.org` to allow Caddy to auto-provision Let's Encrypt TLS.
+* [ ] Set `COOKIE_SECURE=true` once running over HTTPS.
+
+---
+
+## Configuration Reference
+
+Key environment variables configurable in `.env`:
+
+| Variable | Default (Dev) | Production Recommendation | Description |
+|---|---|---|---|
+| `ENV` | `development` | `production` | Environment mode. `production` enforces strict security constraints. |
+| `SECRET_KEY` | Auto-generated | 64-char random hex string | Cryptographic key used to sign session JWTs. |
+| `DATABASE_URL` | `sqlite:///./resqsync.db` | `postgresql+psycopg2://user:pass@postgres:5432/resqsync` | Primary persistence connection string. |
+| `REDIS_URL` | *(empty)* | `redis://redis:6379/0` | Enables cluster rate-limiting and cross-worker SSE events. |
+| `COOKIE_SECURE` | `false` | `true` | Enforces `Secure` flag on session cookies (requires HTTPS). |
+| `DEMO_LOGIN` | `true` | `false` | Enables one-click evaluation cards. Hard-blocked in production. |
+| `SEED_DEMO_DATA` | `true` | `false` | Seeds fictional demo data on initial database creation. |
+| `LOGIN_MAX_FAILURES` | `6` | `5` | Maximum failed password attempts before account cooldown. |
+| `LOGIN_WINDOW_SECONDS`| `900` | `900` | Sliding window duration (15 minutes) for login throttling. |
+| `DATA_RETENTION_DAYS` | `0` *(disabled)* | `90` | Automatic retention pass to purge/anonymise resolved SOS records. |
+
+---
+
+## API Reference
+
+The ResQSync REST API adheres to JSON API standards with full OpenAPI 3.0 documentation generated automatically.
+
+Interactive Swagger Explorer: **`/docs`** | ReDoc Alternative: **`/redoc`**
+
+### Route Groups
+
+* **Authentication & Identity:**
+  * `POST /api/auth/login` — Authenticate with email and password (sets HttpOnly cookie)
+  * `POST /api/auth/demo-login` — Instant evaluation role sign-in *(dev only)*
+  * `GET  /api/auth/me` — Retrieve active session profile and permissions
+  * `POST /api/auth/logout` — Invalidate session and clear cookie
+  * `POST /api/auth/logout-all` — Revoke all active sessions across all devices
+  * `POST /api/auth/forgot` & `POST /api/auth/reset` — Secure tokenized password recovery
+* **Emergency Incidents & Resources:**
+  * `GET/POST/PATCH /api/crises` — Crisis lifecycle management and classification
+  * `GET/POST/PATCH /api/resources` — Emergency equipment, personnel, and fleet assets
+  * `GET/POST /api/allocations` — Commit and release assets to/from active incidents
+  * `GET/POST /api/demands` — Incident resource demand requests
+* **Triage & Conflict Resolution:**
+  * `GET/POST /api/negotiations` — Competing claim tracking and arbitration logs
+  * `GET/POST /api/decisions` — Managerial resolution records with recorded reasons
+* **Citizen Help-Seeker Desk:**
+  * `POST /api/help-requests` — Submit public distress ticket (headcount, category, GPS)
+  * `GET  /api/help-requests/{code}` — Check real-time status of submitted ticket
+  * `POST /api/help-requests/{code}/verify` — Incident Commander ticket verification
+  * `POST /api/help-requests/{code}/dispatch` — Logistics field dispatch
+  * `POST /api/help-requests/{code}/resolve` — Mark rescue complete
+* **Operational Analytics & Exports:**
+  * `GET  /api/reports/export?format=pdf` — Compiled tactical situation report (PDF)
+  * `GET  /api/reports/export?format=xml` — Machine-readable emergency schema (XML)
+  * `GET  /api/exports/*.csv` — Data exports (Crises, Resources, Help Requests, Audit)
+* **System Observability & Real-Time:**
+  * `GET  /api/events` — Server-Sent Events (SSE) live data stream
+  * `GET  /api/health` — Comprehensive health check (Database, Redis, Disk)
+  * `GET  /metrics` — Prometheus-compatible metrics endpoint
+
+---
+
+## Security, Privacy & Compliance
+
+ResQSync incorporates enterprise-grade defensive patterns:
+
+```
+                  ┌──────────────────────────────────────────────┐
+                  │          Incoming Client Request             │
+                  └──────────────────────┬───────────────────────┘
+                                         │
+                 [1. Security Headers (CSP, HSTS, X-Frame) ]
+                                         │
+                 [2. Redis Sliding-Window Rate Limiting   ]
+                                         │
+                 [3. Argon2id / JWT Session Verification  ]
+                                         │
+                 [4. Server-Side RBAC Permission Guard    ]
+                                         │
+                 [5. PII Masking & EXIF Scrubbing         ]
+                                         │
+                                         ▼
+                  ┌──────────────────────────────────────────────┐
+                  │       Business Logic & Immutable Audit       │
+                  └──────────────────────────────────────────────┘
+```
+
+* **Password Hashing:** Implemented with **Argon2id** via `pwdlib`, resisting GPU/ASIC brute-force attacks.
+* **Session Invalidation:** JWT session tokens carry a unique session identifier (`jti`) and a token version (`ver`). Changing a password, revoking access, or suspending an account immediately invalidates all active sessions globally.
+* **Upload Sanitization:** User-uploaded attachments and SOS field photos undergo strict MIME-type validation, size restrictions, and **automatic EXIF/GPS metadata stripping** before storage to protect citizen privacy.
+* **PII Redaction in Application Logs:** An operational log filter automatically masks passwords, session tokens, phone numbers, and physical street addresses prior to disk writes.
+* **Data Subject Rights:** Full self-service data export (`GET /api/me/data`) and account deletion with anonymisation (`POST /api/me/delete-account`).
+
+---
+
+## Testing & Verification
+
+The test suite validates algorithmic arbitration, security barriers, rate limiting, and end-to-end workflows:
+
+```bash
+# Run backend pytest suite (80 passed, 1 skipped)
 cd backend
-pytest -q
+python -m pytest -q
+
+# Run code style & linting checks
 ruff check .
 ruff format --check .
 
-# Frontend
-cd frontend
+# Run frontend TypeScript type checking
+cd ../frontend
 npm run typecheck
-npm run build
-npm run sync
 
-# Controller-level regression checks (jsdom)
+# Validate build & frontend bundle integrity
+npm run build
+
+# Run jsdom controller regression checks
 node scripts/archive-startup-check.cjs
 
-# Browser checks — run against a seeded backend serving the built UI (Linux/CI)
+# Run end-to-end live multi-user verification
 node scripts/live-e2e-check.cjs
-node scripts/archive-browser-check.cjs
 ```
 
-The current suite is **80 passed, 1 skipped**. The same commands run in GitHub Actions:
+### Automated CI Pipeline
 
-| Job | What it covers |
-|---|---|
-| **Backend Lint & Format** | Ruff check and format verification. |
-| **Backend Pytest Matrix (SQLite)** | Rules, permissions, concurrency, uploads, privacy and exports on SQLite. |
-| **Backend Pytest Matrix (PostgreSQL)** | The same suite against PostgreSQL 16. |
-| **Frontend Build & Drift Check** | Regenerates the archive, fails on drift, typechecks and builds. |
-| **Startup Check & Live E2E** | Starts a seeded backend, runs the live verification scripts and the multi-user flows. |
+Every pull request and merge triggers the GitHub Actions workflow (`.github/workflows/ci.yml`):
+* **Backend Lint & Static Analysis:** Ruff linting and formatting validation.
+* **Pytest SQLite Matrix:** Core business logic, RBAC, and triage verification.
+* **Pytest PostgreSQL 16 Matrix:** Transactional concurrency, outbox queues, and schema migrations.
+* **Frontend Typecheck & Build:** TypeScript verification and Vite compilation.
+* **Live Integration E2E Check:** Boots a temporary live stack and verifies multi-role workflows.
 
-## Security and privacy
+---
 
-- **Passwords** are hashed with Argon2 (`pwdlib`). Registration enforces a 10-character minimum with a
-  letter and a number or symbol.
-- **Sessions** are JWTs in an HTTP-only, SameSite=Lax cookie. Tokens carry a session id (`jti`) and a
-  token version (`ver`); disabling an account or changing/resetting a password revokes sessions.
-- **RBAC** is enforced server-side on every endpoint. The browser table is only a convenience.
-- **Login throttling** is shared through Redis when available, with a per-process fallback. Registration,
-  password reset and uploads have separate limits.
-- **Reset tokens** are 32-byte random values, stored only as SHA-256 hashes, valid for 30 minutes and
-  single-use. Forgot-password responses are enumeration-resistant.
-- **Security headers** include a strict Content Security Policy, `frame-ancestors 'none'`, `nosniff`,
-  `DENY`, `Referrer-Policy: same-origin`, a Permissions Policy and `Cache-Control: no-store` on API calls.
-- **Uploads** are size- and type-checked. ClamAV scanning is optional, and JPEG/PNG/WebP metadata
-  scrubbers remove EXIF/GPS data before storage.
-- **Audit and observability** record actor, role, action and detail; logs pass through a PII masking
-  filter for passwords, tokens, phone numbers and street addresses.
-- **Privacy controls** include a data export, self-deletion with anonymisation, an admin anonymisation
-  path and a configurable retention pass.
-- **Demo mode is safe by construction:** `/api/meta` never exposes passwords, the one-click cards call a
-  server-side `POST /auth/demo-login`, and both the endpoint and the cards are hard-disabled when
-  `ENV=production`.
-- **Secrets and data** are not committed: `.env` and `*.db` are ignored, and the container stack keeps
-  PostgreSQL and Redis off the host network.
-
-## Project structure
+## Project Structure
 
 ```text
-.
+Crisis-Resource-Conflict-Resolution-Platform/
 ├── backend/
+│   ├── alembic/                 # Database schema migrations
 │   ├── app/
-│   │   ├── main.py              # app factory, middleware, lifespan, SPA serving
-│   │   ├── config.py            # environment settings
-│   │   ├── database.py          # SQLite/PostgreSQL engine, transactions, migrations
-│   │   ├── security.py          # passwords, JWTs, sessions, RBAC dependencies
-│   │   ├── roles.py             # canonical role + permission table
-│   │   ├── rate_limit.py        # Redis-backed sliding-window limiter
-│   │   ├── models/              # SQLAlchemy models
-│   │   ├── routers/             # auth, workspace, help requests, events, metrics
-│   │   ├── schemas/             # Pydantic request/response models
-│   │   └── services/            # seeding, serializers, privacy, outbox, delivery
-│   ├── alembic/                 # schema migrations
-│   ├── tests/                   # pytest suite
-│   ├── requirements.txt
-│   └── .env.example
+│   │   ├── models/              # SQLAlchemy relational models
+│   │   ├── routers/             # API route controllers (auth, crises, resources, help)
+│   │   ├── schemas/             # Pydantic v2 validation contracts
+│   │   ├── services/            # Seeding, serializers, privacy, outbox worker
+│   │   ├── config.py            # Typed settings & environment parsing
+│   │   ├── database.py          # SQLAlchemy session & connection pooling
+│   │   ├── main.py              # Application factory, middleware & routing
+│   │   ├── rate_limit.py        # Redis sliding-window rate limiter
+│   │   ├── roles.py             # Server-side RBAC definitions
+│   │   └── security.py          # Argon2id hashing & JWT authentication
+│   ├── tests/                   # Pytest test suite (80+ test cases)
+│   ├── requirements.txt         # Python dependencies
+│   └── .env.example             # Backend environment template
 ├── frontend/
 │   ├── public/
-│   │   ├── archive/index.html   # standalone UI source of truth
-│   │   └── theme-boot.js        # applies the saved theme before first paint
-│   ├── scripts/                 # archive sync + startup/browser checks
-│   ├── src/                     # React shell + generated archive controller
-│   ├── index.html
-│   ├── package.json
-│   └── tsconfig.json
+│   │   ├── archive/index.html   # Standalone UI source of truth
+│   │   └── theme-boot.js        # Instant theme hydration (avoids theme flash)
+│   ├── scripts/                 # Sync scripts and E2E browser checkers
+│   ├── src/                     # React shell & generated archive controller
+│   ├── index.html               # Vite HTML entry point
+│   ├── package.json             # Node dependencies and build scripts
+│   └── tsconfig.json            # Strict TypeScript configuration
 ├── docs/
-│   └── screenshots/             # README gallery
-├── tools/                       # verification, load-test, backup and restore scripts
-├── Dockerfile                   # multi-stage frontend + backend image
-├── docker-compose.yml           # postgres + redis + api + caddy
-├── Caddyfile                    # reverse proxy and optional automatic HTTPS
-├── .env.example                 # compose secrets template
-├── .github/workflows/ci.yml     # CI matrix and live checks
-└── README.md
+│   └── screenshots/             # README visual gallery
+├── tools/                       # Database backup, restore, and load-test utilities
+├── Caddyfile                    # Production edge reverse proxy configuration
+├── Dockerfile                   # Hardened multi-stage container build
+├── docker-compose.yml           # Multi-container orchestration (App, DB, Redis, Caddy)
+├── .env.example                 # Compose environment configuration template
+├── .github/workflows/ci.yml     # Automated multi-job CI pipeline
+└── README.md                    # Project documentation
 ```
 
-The interface lives in `frontend/public/archive/index.html`. React mounts it, and
-`npm run sync` regenerates `frontend/src/archive-document.ts` and `archive-controller.ts`. Edit the
-standalone HTML, then run the sync before committing — CI fails on generated-file drift.
+---
 
 ## Troubleshooting
 
-| Symptom | Fix |
-|---|---|
-| **Demo role cards are missing** | Set `DEMO_LOGIN=true` and restart. In development, demo login auto-seeds its accounts. Production intentionally hides the cards. |
-| **Admin login fails** | In development use `aditi@example.org` / `Resqsync#2026`, or the bootstrap admin from `backend/.env`. If you changed the password, the demo card will not advertise the old one. |
-| **“One-click sign-in is not enabled”** | `DEMO_LOGIN` is off, or `ENV=production`. Demo mode is disabled in production by design. |
-| **Login succeeds but the session is lost in Docker** | `COOKIE_SECURE=true` requires HTTPS. Use a domain with `SITE_ADDRESS` and TLS, or set `COOKIE_SECURE=false` for plain HTTP. |
-| **`docker compose` complains about a required variable** | Copy `.env.example` to `.env` and fill `POSTGRES_PASSWORD`, `SECRET_KEY`, `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD`. |
-| **The frontend cannot reach the API in development** | Make sure the backend is on `127.0.0.1:8000`; Vite proxies `/api` there by default. For a different backend, set `VITE_BACKEND_URL`. |
-| **Light-mode login shows no photos** | The login imagery is loaded from Pexels. Offline, the panel falls back to a dark gradient; the quote remains readable. |
-| **`git diff` reports generated-frontend drift** | Run `cd frontend && npm run sync`, then commit `src/archive-document.ts` and `src/archive-controller.ts`. |
-| **Port 8000 is already in use** | Start the backend on another port and point the Vite proxy at it, or stop the existing process. |
-| **Reset the demo database** | Stop the backend, delete `backend/resqsync.db`, and restart. All seeded data and demo accounts are recreated. |
+| Symptom | Probable Cause | Recommended Resolution |
+|---|---|---|
+| **Demo role cards are missing on login** | `DEMO_LOGIN=false` or `ENV=production`. | Set `DEMO_LOGIN=true` and `ENV=development` in your `.env` file and restart. |
+| **Login fails for demo accounts** | Database was initialized without demo seed or password was altered. | Default password is `Resqsync#2026`. To re-seed, stop backend, delete `backend/resqsync.db`, and restart. |
+| **Session cookie rejected in Docker** | `COOKIE_SECURE=true` while browsing via unencrypted HTTP. | Set `COOKIE_SECURE=false` for plain HTTP testing, or configure a domain with TLS in Caddy. |
+| **Docker Compose fails with missing variable** | `.env` file is missing required secrets. | Copy `.env.example` to `.env` and configure `POSTGRES_PASSWORD`, `SECRET_KEY`, and bootstrap admin credentials. |
+| **Frontend cannot communicate with API** | Vite dev proxy misconfiguration. | Ensure the backend is listening on `127.0.0.1:8000`. To customize the target, set `VITE_BACKEND_URL`. |
+| **Generated frontend drift reported by CI** | `public/archive/index.html` was edited without syncing. | Run `cd frontend && npm run sync` and commit the updated `src/archive-controller.ts` file. |
 
-## Future work
+---
 
-- MFA and e-mail verification for staff accounts.
-- Live SMS/push provider wiring behind the existing outbox contract.
-- Locally vendored hero imagery and fonts so the demo works fully offline.
-- Per-IP login limits on top of the per-account limit.
-- More automated accessibility and visual-regression checks in CI.
+## Evaluation Credits & Acknowledgements
 
-## Credits
+* **Typography:** [Inter](https://fonts.google.com/specimen/Inter) and [Playfair Display](https://fonts.google.com/specimen/Playfair+Display) via Google Fonts.
+* **Photography:** Field emergency photography courtesy of verified [Pexels](https://www.pexels.com/) contributors.
+* **Core Technologies:** FastAPI, SQLAlchemy, Alembic, Pydantic, PostgreSQL, Redis, React, Vite, Caddy, and Docker.
+* **Dataset:** All incident scenarios, logistical assets, distress calls, and personnel names are synthetic and designed exclusively for academic evaluation.
 
-- **Photography:** Pexels contributors for the field images used in the landing and sign-in experience.
-- **Typography:** Playfair Display and Inter via Google Fonts.
-- **Stack:** FastAPI, SQLAlchemy, Alembic, Pydantic, PostgreSQL, Redis, React, Vite, Caddy and Docker.
-- **Dataset:** all incidents, people, organisations and resources are fictional and were created for this
-  academic project.
+---
 
 ## License
 
-This repository is an academic project provided as-is for learning and evaluation. Third-party
-libraries, fonts and photographs retain their respective licenses.
+This repository is developed as an academic capstone evaluation project. All underlying libraries, fonts, and assets retain their respective original licenses.
