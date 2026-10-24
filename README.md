@@ -1,221 +1,526 @@
-# ResQSync — Crisis Resource Conflict Resolution Platform
+<div align="center">
 
-A crisis-coordination platform for Indian emergency response: incidents, shared resource inventory,
-automatic conflict detection with transparent priority ranking, manager overrides with a recorded
-rationale, a help-request desk, messaging, analytics and reports.
+<h1>ResQSync</h1>
+<p><strong>Every resource where it matters.</strong></p>
 
-* **Backend** — FastAPI + SQLAlchemy (SQLite by default, PostgreSQL supported). Real accounts, role-based
-  access enforced on the server, transactional allocation, audit trail, live updates (Server-Sent Events).
-* **Frontend** — React shell around the archive interface in `frontend/public/archive/index.html`
-  (source of truth; `node scripts/sync-archive.cjs` regenerates `src/archive-*.ts`). All data now comes from the API.
+<p>
+A crisis-resource coordination platform for India's emergency response networks.<br/>
+Incidents, shared inventory, allocation conflicts, role-based workspaces, a help-request desk,
+live updates, analytics and a complete audit trail — in one server-backed app.
+</p>
 
-## Run it (development)
+<p>
+  <a href="https://github.com/Abishrii/Crisis-Resource-Conflict-Resolution-Platform/actions/workflows/ci.yml">
+    <img src="https://github.com/Abishrii/Crisis-Resource-Conflict-Resolution-Platform/actions/workflows/ci.yml/badge.svg?branch=integrate-real-backend" alt="CI status">
+  </a>
+  <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12">
+  <img src="https://img.shields.io/badge/FastAPI-0.141-009688?logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React 18">
+  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 16">
+  <img src="https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white" alt="Redis 7">
+  <img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" alt="Docker Compose">
+  <img src="https://img.shields.io/badge/status-academic%20project-6C5CE7" alt="Academic project">
+</p>
 
-```bash
-# 1) backend  (Python 3.12+)
-cd backend
-python -m venv venv && source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env                                    # optional; defaults work for development
-uvicorn app.main:app --reload --port 8000
+<p>
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#faculty-demo-guide">Faculty demo</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#api-overview">API</a> ·
+  <a href="#troubleshooting">Troubleshooting</a>
+</p>
 
-# 2) frontend (second terminal)
-cd frontend
-npm install
-npm run dev                                             # http://localhost:5173  (proxies /api to :8000)
-```
-
-On first start the database `backend/resqsync.db` is created and filled with the fictional India training
-dataset and demo accounts. **If you used the previous skeleton, delete the old `crisis_platform.db`**; the schema changed.
-
-| Demo account (development only) | Role | Lands on |
-|---|---|---|
-| aditi@example.org | Admin | full workspace + audit |
-| arjun@example.org | Crisis manager | workspace; request desk |
-| meera@example.org | Resource coordinator | workspace; dispatch queue |
-| seeker@example.org | Help seeker | request desk |
-
-Password for all: `Resqsync#2026`. Anyone can also create a **help-seeker** account from the sign-in dialog;
-staff accounts are created by an admin (People & access → Add a user; a temporary password is shown once).
-
-With `DEMO_LOGIN=true` (development default) the sign-in dialog shows one-click role cards, and the
-workspace header has a **Demo role** switcher so you can move between roles without signing out. Both use
-`POST /api/auth/demo-login` and are disabled in production.
-
-## Run it as one server (production-style)
-
-```bash
-cd frontend && npm run build
-cd ../backend && ENV=production SECRET_KEY=... BOOTSTRAP_ADMIN_EMAIL=you@org BOOTSTRAP_ADMIN_PASSWORD=... \
-  SEED_DEMO_DATA=false uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-FastAPI serves `frontend/dist` from the same origin, so the HTTP-only session cookie needs no CORS setup.
-Put it behind HTTPS (the cookie is `Secure` in production). See `backend/.env.example` for every setting.
-
-## What the backend does
-
-| Area | Behaviour |
-|---|---|
-| Auth | e-mail + password (Argon2), JWT in an HTTP-only SameSite cookie (or `Authorization: Bearer`), login throttling, password change, sessions end on role change / disable |
-| Roles | admin, crisis-manager, resource-coordinator, help-seeker — permission table in `app/roles.py`, enforced per endpoint |
-| Conflicts | pools whose open requests exceed free stock are ranked by severity (65%) and response readiness (35%); filling never exceeds capacity |
-| Allocation | manual assign, override (manager/admin, reason required), approve-recommendation; contested pools need approval rights; row-locked / `BEGIN IMMEDIATE` so concurrent requests cannot over-allocate |
-| Shared inventory | incident allocations and individual help-request assignments draw from the same pools |
-| Help requests | opened → verified → assigned → en route → resolved, role-gated; seekers see only their own; photo upload validated by content |
-| Records | crisis timelines, resource history + maintenance log, decisions, negotiations, saved scenarios, audit trail |
-| Collaboration | channel messages, document upload/download (5 MB, allow-listed types, served as attachment) |
-| Reports | `GET /api/reports/export?format=pdf|xml&days=30` generated on the server |
-| Live updates | `GET /api/events` (SSE) — other users' screens refresh when anything changes |
-| Notifications | in-app always; e-mail via SMTP when configured; SMS/push are recorded in the `outbox` table as `not_configured` (no provider is connected) |
-
-Interactive API docs: `http://localhost:8000/docs`.
-
-## Tests
-
-```bash
-cd backend && pytest                       # 41 tests: rules, permissions, concurrency, uploads, reports
-cd frontend
-node scripts/sync-archive.cjs && npx vite build
-node scripts/archive-startup-check.cjs     # needs: npm i -D jsdom
-# Live browser run against a FRESH, seeded backend that serves the built UI (needs playwright-core + @sparticuz/chromium):
-node scripts/live-e2e-check.cjs            # multi-user flows, live updates, permissions
-node scripts/live-session-check.cjs        # reload keeps session, sign-out
-```
-
-## Security Architecture & Threat Model
-
-* **Authentication & Session Lifecycle**:
-  - Passwords hashed using Argon2 (`pwdlib`).
-  - Strict password policy enforced (minimum 10 chars, complexity validation).
-  - JWT tokens embed session identifiers (`jti`) and token versions (`ver`).
-  - Active device tracking in `user_sessions` table with IP, User-Agent, and timestamps.
-  - Multi-device instant session revocation via `POST /api/auth/logout-all` and upon password change/reset.
-* **Enumeration Resistance & Password Reset**:
-  - Password reset requests (`POST /api/auth/forgot`) return a constant timing-safe HTTP 200 message regardless of account existence.
-  - High-entropy cryptographic reset tokens (32 bytes base64url) stored solely as SHA-256 hashes with a strict 30-minute expiry and single-use enforcement.
-* **Rate Limiting & Anti-Abuse**:
-  - Multi-worker sliding-window rate limiter (`RateLimiter`) with Redis coordination when `REDIS_URL` is set, and thread-safe in-memory sliding-window fallback per worker.
-  - Dedicated rate limits for user registration (`RATE_LIMIT_REGISTER`), password reset (`RATE_LIMIT_FORGOT`), login attempts (`LOGIN_MAX_FAILURES`), and file uploads (`RATE_LIMIT_UPLOAD`).
-  - Returns HTTP 429 with `Retry-After` header when thresholds are exceeded.
-* **Content Security & Browser Protection**:
-  - `Content-Security-Policy`: Restricts scripts and framing (`frame-ancestors 'none'`), allows fonts from Google Fonts and approved image CDNs (Pexels).
-  - `Permissions-Policy`: Blocks microphone, camera, and payment APIs; restricts geolocation.
-  - `Strict-Transport-Security` (HSTS): Enabled in production and over HTTPS (`max-age=31536000; includeSubDomains`).
-  - `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`.
-  - `Cache-Control: no-store` on all `/api/` endpoints to prevent sensitive emergency data leakage into shared browser caches.
-* **Malware Defense & Metadata Sanitization**:
-  - ClamAV TCP daemon scanner integration via `INSTREAM` protocol (`scan_bytes`) with fail-safe quarantine.
-  - Pure-Python EXIF/GPS metadata scrubber (`image_sanitize.py`) stripping APP1/eXIf/tEXt chunks from uploaded JPEG, PNG, and WebP images to protect vulnerable help-seekers' physical locations.
-* **PII Redaction in Observability**:
-  - Centralized `PIIMaskingFilter` attached to standard loggers redacting passwords, tokens, phone numbers, and physical street addresses from log outputs.
-
-## Notification Providers & Dispatch Configuration
-
-ResQSync uses an asynchronous transactional outbox worker (`OutboxWorker`) to decouple crisis actions from external message transmission. In-app alerts are instantaneous; external dispatches are persisted to the `outbox` table and processed with exponential back-off (`2^attempts * 5s`, up to 3 retries). If external providers are unconfigured, messages are safely marked `not_configured` without failing transaction execution.
-
-### Phone Verification Policy
-To prevent abuse, emergency dispatch alerts via SMS are strictly blocked until the account holder verifies their mobile phone number via a 6-digit OTP (`POST /api/me/phone/send-otp` and `POST /api/me/phone/verify-otp`).
-
-### Provider Settings & Environment Variables
-
-Configure the following variables in `backend/.env` according to your organization's infrastructure:
-
-#### 1. Email (SMTP)
-* `SMTP_HOST`: Mail server hostname (e.g., `smtp.mailgun.org`, `smtp.sendgrid.net`).
-* `SMTP_PORT`: SMTP port (default `587` with STARTTLS, or `465` with SSL).
-* `SMTP_USER`: Authentication user.
-* `SMTP_PASSWORD`: Authentication token or password.
-* `SMTP_FROM`: Validated sender email address (e.g., `alerts@resqsync.org`).
-* `SMTP_STARTTLS`: Set `true` for port 587 (default `true`).
-
-#### 2. SMS (MSG91 or Twilio)
-Set `SMS_PROVIDER=msg91` or `SMS_PROVIDER=twilio`:
-* **MSG91 (India DLT Compliant)**:
-  - `MSG91_AUTH_KEY`: MSG91 API auth key.
-  - `MSG91_SENDER_ID`: 6-character registered DLT Sender ID.
-  - `MSG91_TEMPLATE_ID`: Approved DLT template ID.
-* **Twilio**:
-  - `TWILIO_ACCOUNT_SID`: Twilio account SID.
-  - `TWILIO_AUTH_TOKEN`: Twilio auth token.
-  - `TWILIO_FROM_NUMBER`: Registered Twilio phone number in E.164 format (e.g., `+1234567890`).
-
-#### 3. Web Push (VAPID)
-* `VAPID_PUBLIC_KEY`: Application Server Public Key (Base64url).
-* `VAPID_PRIVATE_KEY`: Application Server Private Key (Base64url).
-* `VAPID_CLAIM_EMAIL`: Operator contact identifier (e.g., `mailto:admin@resqsync.org`).
-
-#### 4. Outbox Worker Lifecycle
-* `OUTBOX_WORKER_INTERVAL_SECONDS`: Polling interval for queued outbox retries (default `3.0` seconds).
-
-
-## Deployment & Container Orchestration
-
-ResQSync includes production container orchestration files for turnkey deployment:
-
-### 1. Docker & Docker Compose
-* **Multi-stage Dockerfile**: Builds the React/Vite SPA bundle with Node 20 in Stage 1, and packages the FastAPI ASGI backend inside a secure Python 3.12 slim runner executing as a non-privileged system user (`appuser`).
-* **docker-compose.yml**:
-  - `postgres`: PostgreSQL 16 Alpine with a health check (`pg_isready`) and persistent named volume `postgres_data`. It is **not** published to the host.
-  - `redis`: Redis 7 for shared rate limiting and cross-worker live updates (not published to the host).
-  - `api`: Containerized backend running with auto-run Alembic migrations on startup, health checks via `/api/health`, and persistent volume `uploads_data`.
-  - `reverse-proxy`: Caddy with gzip/zstd and routing. Set `SITE_ADDRESS` to a real domain to enable automatic HTTPS; the default `:80` serves plain HTTP.
-
-Compose requires `POSTGRES_PASSWORD`, `SECRET_KEY`, `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD`. Copy the template and fill it in:
-```bash
-cp .env.example .env
-# edit .env: set strong database, JWT and admin credentials
-docker compose up -d --build
-```
-Demo accounts and the one-click login cards are development conveniences. Keep `SEED_DEMO_DATA=false` and `DEMO_LOGIN=false` in production. If you serve HTTPS through a domain, also set `COOKIE_SECURE=true`.
-
-### 2. Database Migrations (Alembic)
-Database schemas are version-controlled via Alembic. On startup with a PostgreSQL `DATABASE_URL`, the application automatically applies pending migrations to `head`.
-
-To manage migrations manually:
-```bash
-cd backend
-# Check migration status
-alembic current
-# Upgrade to latest revision
-alembic upgrade head
-# Generate a new migration
-alembic revision --autogenerate -m "description_of_changes"
-```
-
-### 3. Disaster Recovery & Backup Tooling
-Automated, engine-agnostic backup and restore utilities support both SQLite and PostgreSQL instances:
-
-* **Create Backup**:
-  ```bash
-  python tools/backup.py --out ./backups
-  ```
-  Creates a timestamped `.tar.gz` archive containing:
-  - `manifest.json`: Metadata, table record counts, and SHA-256 checksums of all files.
-  - `data.json`: Engine-agnostic database records.
-  - `database.sql`: Native SQL dump.
-  - `uploads/`: Complete copy of uploaded binary attachments.
-
-* **Restore Backup**:
-  ```bash
-  python tools/restore.py ./backups/resqsync-backup-YYYYMMDD_HHMMSS.tar.gz
-  ```
-  Validates SHA-256 checksums, clears existing tables in dependency order, restores rows and binary files, and validates final counts against the manifest.
-
-* **Automated Verification**:
-  ```bash
-  python tools/test_backup_restore.py
-  ```
+</div>
 
 ---
 
-## Production Checklist
+> **Academic project.** ResQSync was built for a college evaluation. Every incident, person,
+> organisation and resource in the seeded dataset is **fictional**. Demo mode is deliberately
+> available in development and is hard-disabled in production.
 
-* [x] **Container Isolation**: Run with multi-stage Docker; backend runs as non-root `appuser`.
-* [x] **Environment Security**: Set `ENV=production`, configure a high-entropy 32+ character `SECRET_KEY`, set a strong `BOOTSTRAP_ADMIN_PASSWORD`, and leave `SEED_DEMO_DATA=false` / `DEMO_LOGIN=false`.
-* [x] **Database Scale & Concurrency**: Use PostgreSQL for multi-worker deployments; write transactions utilize `SELECT ... FOR UPDATE` row locks.
-* [x] **Schema Management**: Alembic migrations applied to `head` (`alembic upgrade head`).
-* [x] **Reverse Proxy & TLS**: Set `SITE_ADDRESS` to a real domain so Caddy provisions HTTPS, then set `COOKIE_SECURE=true`; HSTS is sent automatically once the request is HTTPS.
-* [x] **Backup Verification**: Schedule periodic execution of `tools/backup.py` to off-site object storage and routinely test recovery via `tools/test_backup_restore.py`.
-* [x] **Malware & Metadata Filtering**: Ensure ClamAV scanner daemon is reachable and EXIF scrubber is active for all crisis photo uploads.
-* [x] **Notification Deliverability**: Verify mobile numbers before granting SMS dispatch permissions and monitor the transactional outbox worker.
-* [x] **Decision Transparency**: Priority ranking is a transparent heuristic to aid human dispatchers, not an automated black box.
+## Why ResQSync
+
+In a real response network, three incidents can need the same ambulance, the same boat or the same
+oxygen pool at the same time. Someone has to decide who gets it first — and be able to explain why.
+
+ResQSync turns that problem into a shared workspace:
+
+- **One picture of the response** — incidents, resources, requests, messages and decisions in one place.
+- **Transparent conflict resolution** — competing demands are ranked by severity and response readiness,
+  with manager overrides that require a recorded reason.
+- **A role for everyone** — administrators, crisis managers, resource coordinators and help seekers each
+  get a workspace that matches what they are allowed to do.
+- **Server-enforced rules** — the browser greys out controls, but every permission is checked again by
+  the API. The UI is never the security boundary.
+- **A live desk** — new requests and updates appear for other signed-in users without a refresh.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/login-light.jpg" alt="ResQSync sign-in in light mode">
+      <br><sub><b>Sign in · light mode</b> — one-click demo roles with capability hints</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/login-dark.jpg" alt="ResQSync sign-in in dark mode">
+      <br><sub><b>Sign in · dark mode</b> — the same editorial interface, token-driven</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/workspace-admin.jpg" alt="Admin workspace with demo role switcher">
+      <br><sub><b>Admin workspace</b> — demo-mode chip and instant role switcher in the header</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/desk-seeker.jpg" alt="Help seeker request desk">
+      <br><sub><b>Help-seeker desk</b> — raise a request and follow it to resolution</sub>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/login-mobile.jpg" width="280" alt="ResQSync mobile sign-in">
+  <br><sub><b>Mobile sign-in</b> — the direct-access cards stack cleanly at 390 px</sub>
+</p>
+
+## Features
+
+### The seven-module workspace
+
+| # | Module | What it does |
+|---|--------|--------------|
+| **01** | 🚨 **Crisis management** | Create and track incidents, severity, location, timeline and status. |
+| **02** | 📦 **Resource management** | Shared inventory for personnel, equipment, supplies and facilities, with capacity and maintenance. |
+| **03** | ⚖️ **Conflict resolution** | Detects pools where demand exceeds free stock and ranks competing incidents transparently. |
+| **04** | 👥 **People and access** | User administration, role assignment, account status and a role-capability matrix. |
+| **05** | 💬 **Communication** | Incident channel messages, comment threads, files and in-app notifications. |
+| **06** | 📊 **Analytics and reporting** | Calculated metrics, utilisation, response time, trends and PDF/XML/CSV exports. |
+| **07** | 🧭 **Decision support** | Scenario simulation, coverage analysis and saved scenarios for the audit trail. |
+
+### Beyond the modules
+
+| Capability | Description |
+|---|---|
+| **Help-request desk** | A separate help-seeker workflow: `opened → verified → assigned → en route → resolved`, with photo verification and duplicate detection. |
+| **Role-based workspaces** | Admin, crisis manager, resource coordinator and help seeker each land on the workspace that matches their permissions. |
+| **Server-side RBAC** | A single permission table in `backend/app/roles.py` is enforced on every endpoint. |
+| **Live updates** | Server-Sent Events keep every signed-in screen in sync when anything changes. |
+| **Audit trail** | Sign-ins, role changes, allocations, overrides, privacy actions and demo sign-ins are recorded. |
+| **Privacy and governance** | Data export, self-deletion, admin anonymisation and a configurable retention pass. |
+| **Transactional outbox** | External notifications are queued, retried with backoff and marked `not_configured` when a provider is absent. |
+| **Demo mode** | One-click role cards and an in-workspace role switcher for evaluation — development only. |
+
+## Roles and permissions
+
+| Capability | Admin | Crisis manager | Resource coordinator | Help seeker |
+|---|:---:|:---:|:---:|:---:|
+| View incidents, resources and reports | ✅ | ✅ | ✅ | — |
+| Create and update crises | ✅ | ✅ | — | — |
+| Edit inventory and maintenance | ✅ | — | ✅ | — |
+| Assign and allocate resources | ✅ | ✅ | ✅ | — |
+| Approve or override priorities | ✅ | ✅ | — | — |
+| Manage users and roles | ✅ | — | — | — |
+| Review and verify help requests | ✅ | ✅ | — | — |
+| Dispatch units | ✅ | — | ✅ | — |
+| Raise and track own requests | ✅ | ✅ | — | ✅ |
+| Messages and file attachments | ✅ | ✅ | ✅ | — |
+| Full audit trail and admin outbox | ✅ | — | — | — |
+
+The browser mirrors this table only to disable controls. The API checks it again on every request.
+
+## Faculty demo guide
+
+The login page is intentionally a **demo surface** in development. It shows one-click cards for each
+role so a demonstration does not depend on typing credentials.
+
+| Demo account | Role | Where it lands |
+|---|---|---|
+| `aditi@example.org` | Admin | Full workspace + audit trail |
+| `arjun@example.org` | Crisis manager | Workspace + request desk |
+| `meera@example.org` | Resource coordinator | Workspace + dispatch queue |
+| `seeker@example.org` | Help seeker | Request desk |
+
+The manual-login password for all demo accounts is **`Resqsync#2026`**.
+
+### A suggested five-minute walkthrough
+
+1. **Sign in as Admin** using the first direct-access card. Show the overview, the incident board,
+   the resource pools and the audit trail.
+2. **Switch to Crisis Manager** from the **Demo role** dropdown in the workspace header. Verify an
+   incoming help request and approve an allocation.
+3. **Switch to Resource Coordinator** and show the dispatch queue, inventory and stock movements.
+4. **Switch to Help Seeker**. Raise a request, then track it through `verified → assigned → en route → resolved`.
+5. **Switch back to Admin** and show the audit entries created by the demonstration, including the
+   `Signed in (demo)` records.
+
+The **DEMO MODE** chip in the workspace header makes it clear that these are evaluation controls. In
+production, `DEMO_LOGIN=false` hard-disables both the endpoint and the cards.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Client["Browser"]
+    UI["React + Vite SPA<br/>archive interface"]
+  end
+
+  subgraph Edge["Reverse proxy"]
+    C["Caddy<br/>gzip/zstd · TLS · routing"]
+  end
+
+  subgraph Server["FastAPI application"]
+    A["REST API<br/>auth · RBAC · audit"]
+    S["SSE event stream<br/>/api/events"]
+    O["Outbox worker<br/>notifications"]
+  end
+
+  DB[("PostgreSQL<br/>or SQLite in development")]
+  R[("Redis<br/>rate limits · pub/sub")]
+
+  UI -->|HTTPS| C
+  C --> A
+  A --> DB
+  A --> R
+  A -. live updates .-> UI
+  O --> DB
+  O -. delivery .-> External["SMTP · SMS · push"]
+```
+
+- **Development** uses SQLite and needs no Redis. The in-memory rate limiter and event hub work for a
+  single process.
+- **Deployment** uses PostgreSQL and Redis behind Caddy. Redis coordinates login throttling and live
+  updates across workers.
+- **The browser never talks to the database.** Every read and write goes through the API, which applies
+  the permission table, commits transactionally and writes an audit record.
+
+### Request lifecycle
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant A as FastAPI
+  participant D as Database
+  participant E as Other clients
+
+  B->>A: POST /api/help-requests (cookie session)
+  A->>A: Validate role + payload + rate limit
+  A->>D: Insert request, event, notification and audit row
+  D-->>A: Commit
+  A-->>B: 201 Created
+  A-->>E: SSE change event
+  E->>A: Refresh workspace
+```
+
+## Quick start
+
+### Prerequisites
+
+| Tool | Version |
+|---|---|
+| Python | 3.12+ |
+| Node.js | 20+ |
+| npm | 10+ |
+| Docker + Docker Compose | Optional, for the container stack |
+
+### 1. Start the backend
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env               # optional in development; defaults work
+uvicorn app.main:app --reload --port 8000
+```
+
+On the first start, `backend/resqsync.db` is created and filled with the fictional training dataset and
+the demo accounts. Interactive API docs are at <http://localhost:8000/docs>.
+
+### 2. Start the frontend
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Open <http://localhost:5173>. Vite proxies `/api` and `/health` to `127.0.0.1:8000`, so the HTTP-only
+session cookie works without CORS.
+
+### 3. Or run everything from one server
+
+```bash
+cd frontend
+npm ci
+npm run build
+
+cd ../backend
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+FastAPI serves `frontend/dist` and the API from the same origin. Open <http://127.0.0.1:8000>.
+
+> **Resetting the demo database:** delete `backend/resqsync.db` and restart the backend. The seed is
+> idempotent and recreates the fictional dataset and demo accounts. Do not delete a database that
+> contains real evaluation data without taking a backup first.
+
+## Docker deployment
+
+The production-style stack is a multi-stage image plus four Compose services:
+
+| Service | Purpose | Host exposure |
+|---|---|---|
+| `postgres` | PostgreSQL 16 with persistent storage | Not published |
+| `redis` | Shared rate limits and cross-worker live updates | Not published |
+| `api` | FastAPI + built frontend, non-root user | Internal `8000` only |
+| `reverse-proxy` | Caddy routing, compression and optional TLS | `80` and `443` |
+
+```bash
+cp .env.example .env
+# Fill in POSTGRES_PASSWORD, SECRET_KEY and the bootstrap admin credentials.
+
+docker compose up -d --build
+```
+
+The compose file **requires** these values and fails fast if they are missing:
+
+| Variable | Why it matters |
+|---|---|
+| `POSTGRES_PASSWORD` | Database credential; Postgres is not exposed to the host. |
+| `SECRET_KEY` | JWT signing key. Use 32+ random characters. |
+| `BOOTSTRAP_ADMIN_EMAIL` | Creates the first administrator when no admin exists. |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Password for that administrator. |
+
+### HTTPS and cookies
+
+- The default `SITE_ADDRESS=:80` serves plain HTTP. Keep `COOKIE_SECURE=false` in that mode, otherwise
+  the browser will reject the session cookie.
+- Set `SITE_ADDRESS=resqsync.example.org` (a real domain pointing at the host) and Caddy provisions
+  HTTPS automatically. Then set `COOKIE_SECURE=true`.
+- HSTS is sent automatically once a request arrives over HTTPS.
+
+Demo mode is **off by default** in the container stack: `SEED_DEMO_DATA=false` and `DEMO_LOGIN=false`.
+Use the bootstrap admin to create real staff accounts from **People & access**.
+
+### Database migrations
+
+PostgreSQL deployments apply Alembic migrations to `head` on startup. Manual commands:
+
+```bash
+cd backend
+alembic current
+alembic upgrade head
+alembic revision --autogenerate -m "description_of_changes"
+```
+
+### Backups
+
+```bash
+python tools/backup.py --out ./backups
+python tools/restore.py ./backups/resqsync-backup-YYYYMMDD_HHMMSS.tar.gz
+python tools/test_backup_restore.py
+```
+
+A backup contains a manifest with SHA-256 checksums, engine-agnostic data, a native SQL dump and the
+uploaded files.
+
+## Configuration
+
+Development defaults are in `backend/.env.example`; container defaults and required values are in the
+root `.env.example`.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `ENV` | `development` | `development`, `test` or `production`. Production requires a strong secret. |
+| `SECRET_KEY` | generated in development | JWT signing key. Required in production. |
+| `DATABASE_URL` | SQLite file | PostgreSQL URL for deployment. |
+| `REDIS_URL` | empty | Enables shared rate limits and cross-worker events. |
+| `COOKIE_SECURE` | true in production | Must match your HTTP/HTTPS setup. |
+| `SEED_DEMO_DATA` | true in development | Seeds the fictional dataset and demo accounts. |
+| `SEED_DEMO_PASSWORD` | `Resqsync#2026` in development | Password for seeded accounts. |
+| `DEMO_LOGIN` | true in development | One-click role cards and workspace switcher. Hard-disabled in production. |
+| `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | empty | First administrator when the database has none. |
+| `ALLOW_REGISTRATION` | true | Allows help-seeker self-registration. |
+| `LOGIN_MAX_FAILURES` / `LOGIN_WINDOW_SECONDS` | `6` / `900` | Login throttling thresholds. |
+| `SMTP_HOST` / `SMTP_FROM` | empty | Enables e-mail delivery through the outbox. |
+| `SMS_PROVIDER` | empty | `msg91` or `twilio` for SMS dispatch. |
+| `VAPID_*` | empty | Web-push keys. |
+| `DATA_RETENTION_DAYS` | `0` | Automatic PII retention cleanup; `0` disables it. |
+
+## API overview
+
+All routes are under `/api` and use the HTTP-only session cookie (or `Authorization: Bearer`).
+Interactive docs: `/docs`.
+
+| Group | Representative endpoints |
+|---|---|
+| Authentication | `POST /auth/login`, `POST /auth/register`, `POST /auth/demo-login`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/change-password`, `GET /auth/sessions`, `POST /auth/logout-all` |
+| Recovery | `POST /auth/forgot`, `POST /auth/reset` |
+| Workspace | `GET /workspace`, `GET/POST/PATCH /crises`, `GET/POST/PATCH /resources`, `GET/POST /allocations`, `GET/POST /demands`, `GET/POST /negotiations`, `GET/POST /decisions` |
+| People | `GET/POST/PATCH /users` |
+| Collaboration | `GET/POST /messages`, `GET/POST /attachments`, `GET /notifications`, `POST /notifications/read` |
+| Help requests | `GET/POST /help-requests`, `GET /help-requests/{code}`, `POST /help-requests/{code}/verify`, `/assign`, `/dispatch`, `/resolve`, `/update`, `/cancel`, `/reassign`, `/release-unit` |
+| Reporting | `GET /reports/export?format=pdf\|xml&days=30`, `GET /exports/crises.csv`, `GET /exports/resources.csv`, `GET /exports/help-requests.csv`, `GET /exports/audit.csv` |
+| Decision support | `POST /simulations/run`, `POST /simulations`, `GET /simulations` |
+| Privacy | `GET /privacy/policy`, `GET /me/data`, `POST /me/delete-account`, `POST /users/{id}/anonymise`, `POST /admin/privacy/retention-run` |
+| Live and ops | `GET /events` (SSE), `GET /metrics`, `GET /health`, `GET /api/health` |
+
+<details>
+<summary><b>Show the server-side permission keys</b></summary>
+
+| Permission | Admin | Crisis manager | Resource coordinator | Help seeker |
+|---|:---:|:---:|:---:|:---:|
+| `view` | ✅ | ✅ | ✅ | — |
+| `crisis` | ✅ | ✅ | — | — |
+| `resource` | ✅ | — | ✅ | — |
+| `allocate` | ✅ | ✅ | ✅ | — |
+| `approve` | ✅ | ✅ | — | — |
+| `users` | ✅ | — | — | — |
+| `message` | ✅ | ✅ | ✅ | — |
+| `save` | ✅ | ✅ | ✅ | — |
+| `request.raise` | ✅ | ✅ | — | ✅ |
+| `request.review` | ✅ | ✅ | — | — |
+| `request.dispatch` | ✅ | — | ✅ | — |
+| `request.view_all` | ✅ | ✅ | ✅ | — |
+
+</details>
+
+## Testing and CI
+
+```bash
+# Backend
+cd backend
+pytest -q
+ruff check .
+ruff format --check .
+
+# Frontend
+cd frontend
+npm run typecheck
+npm run build
+npm run sync
+
+# Controller-level regression checks (jsdom)
+node scripts/archive-startup-check.cjs
+
+# Browser checks — run against a seeded backend serving the built UI (Linux/CI)
+node scripts/live-e2e-check.cjs
+node scripts/archive-browser-check.cjs
+```
+
+The current suite is **80 passed, 1 skipped**. The same commands run in GitHub Actions:
+
+| Job | What it covers |
+|---|---|
+| **Backend Lint & Format** | Ruff check and format verification. |
+| **Backend Pytest Matrix (SQLite)** | Rules, permissions, concurrency, uploads, privacy and exports on SQLite. |
+| **Backend Pytest Matrix (PostgreSQL)** | The same suite against PostgreSQL 16. |
+| **Frontend Build & Drift Check** | Regenerates the archive, fails on drift, typechecks and builds. |
+| **Startup Check & Live E2E** | Starts a seeded backend, runs the live verification scripts and the multi-user flows. |
+
+## Security and privacy
+
+- **Passwords** are hashed with Argon2 (`pwdlib`). Registration enforces a 10-character minimum with a
+  letter and a number or symbol.
+- **Sessions** are JWTs in an HTTP-only, SameSite=Lax cookie. Tokens carry a session id (`jti`) and a
+  token version (`ver`); disabling an account or changing/resetting a password revokes sessions.
+- **RBAC** is enforced server-side on every endpoint. The browser table is only a convenience.
+- **Login throttling** is shared through Redis when available, with a per-process fallback. Registration,
+  password reset and uploads have separate limits.
+- **Reset tokens** are 32-byte random values, stored only as SHA-256 hashes, valid for 30 minutes and
+  single-use. Forgot-password responses are enumeration-resistant.
+- **Security headers** include a strict Content Security Policy, `frame-ancestors 'none'`, `nosniff`,
+  `DENY`, `Referrer-Policy: same-origin`, a Permissions Policy and `Cache-Control: no-store` on API calls.
+- **Uploads** are size- and type-checked. ClamAV scanning is optional, and JPEG/PNG/WebP metadata
+  scrubbers remove EXIF/GPS data before storage.
+- **Audit and observability** record actor, role, action and detail; logs pass through a PII masking
+  filter for passwords, tokens, phone numbers and street addresses.
+- **Privacy controls** include a data export, self-deletion with anonymisation, an admin anonymisation
+  path and a configurable retention pass.
+- **Demo mode is safe by construction:** `/api/meta` never exposes passwords, the one-click cards call a
+  server-side `POST /auth/demo-login`, and both the endpoint and the cards are hard-disabled when
+  `ENV=production`.
+- **Secrets and data** are not committed: `.env` and `*.db` are ignored, and the container stack keeps
+  PostgreSQL and Redis off the host network.
+
+## Project structure
+
+```text
+.
+├── backend/
+│   ├── app/
+│   │   ├── main.py              # app factory, middleware, lifespan, SPA serving
+│   │   ├── config.py            # environment settings
+│   │   ├── database.py          # SQLite/PostgreSQL engine, transactions, migrations
+│   │   ├── security.py          # passwords, JWTs, sessions, RBAC dependencies
+│   │   ├── roles.py             # canonical role + permission table
+│   │   ├── rate_limit.py        # Redis-backed sliding-window limiter
+│   │   ├── models/              # SQLAlchemy models
+│   │   ├── routers/             # auth, workspace, help requests, events, metrics
+│   │   ├── schemas/             # Pydantic request/response models
+│   │   └── services/            # seeding, serializers, privacy, outbox, delivery
+│   ├── alembic/                 # schema migrations
+│   ├── tests/                   # pytest suite
+│   ├── requirements.txt
+│   └── .env.example
+├── frontend/
+│   ├── public/
+│   │   ├── archive/index.html   # standalone UI source of truth
+│   │   └── theme-boot.js        # applies the saved theme before first paint
+│   ├── scripts/                 # archive sync + startup/browser checks
+│   ├── src/                     # React shell + generated archive controller
+│   ├── index.html
+│   ├── package.json
+│   └── tsconfig.json
+├── docs/
+│   └── screenshots/             # README gallery
+├── tools/                       # verification, load-test, backup and restore scripts
+├── Dockerfile                   # multi-stage frontend + backend image
+├── docker-compose.yml           # postgres + redis + api + caddy
+├── Caddyfile                    # reverse proxy and optional automatic HTTPS
+├── .env.example                 # compose secrets template
+├── .github/workflows/ci.yml     # CI matrix and live checks
+└── README.md
+```
+
+The interface lives in `frontend/public/archive/index.html`. React mounts it, and
+`npm run sync` regenerates `frontend/src/archive-document.ts` and `archive-controller.ts`. Edit the
+standalone HTML, then run the sync before committing — CI fails on generated-file drift.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| **Demo role cards are missing** | Set `DEMO_LOGIN=true` and restart. In development, demo login auto-seeds its accounts. Production intentionally hides the cards. |
+| **Admin login fails** | In development use `aditi@example.org` / `Resqsync#2026`, or the bootstrap admin from `backend/.env`. If you changed the password, the demo card will not advertise the old one. |
+| **“One-click sign-in is not enabled”** | `DEMO_LOGIN` is off, or `ENV=production`. Demo mode is disabled in production by design. |
+| **Login succeeds but the session is lost in Docker** | `COOKIE_SECURE=true` requires HTTPS. Use a domain with `SITE_ADDRESS` and TLS, or set `COOKIE_SECURE=false` for plain HTTP. |
+| **`docker compose` complains about a required variable** | Copy `.env.example` to `.env` and fill `POSTGRES_PASSWORD`, `SECRET_KEY`, `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD`. |
+| **The frontend cannot reach the API in development** | Make sure the backend is on `127.0.0.1:8000`; Vite proxies `/api` there by default. For a different backend, set `VITE_BACKEND_URL`. |
+| **Light-mode login shows no photos** | The login imagery is loaded from Pexels. Offline, the panel falls back to a dark gradient; the quote remains readable. |
+| **`git diff` reports generated-frontend drift** | Run `cd frontend && npm run sync`, then commit `src/archive-document.ts` and `src/archive-controller.ts`. |
+| **Port 8000 is already in use** | Start the backend on another port and point the Vite proxy at it, or stop the existing process. |
+| **Reset the demo database** | Stop the backend, delete `backend/resqsync.db`, and restart. All seeded data and demo accounts are recreated. |
+
+## Future work
+
+- MFA and e-mail verification for staff accounts.
+- Live SMS/push provider wiring behind the existing outbox contract.
+- Locally vendored hero imagery and fonts so the demo works fully offline.
+- Per-IP login limits on top of the per-account limit.
+- More automated accessibility and visual-regression checks in CI.
+
+## Credits
+
+- **Photography:** Pexels contributors for the field images used in the landing and sign-in experience.
+- **Typography:** Playfair Display and Inter via Google Fonts.
+- **Stack:** FastAPI, SQLAlchemy, Alembic, Pydantic, PostgreSQL, Redis, React, Vite, Caddy and Docker.
+- **Dataset:** all incidents, people, organisations and resources are fictional and were created for this
+  academic project.
+
+## License
+
+This repository is an academic project provided as-is for learning and evaluation. Third-party
+libraries, fonts and photographs retain their respective licenses.
