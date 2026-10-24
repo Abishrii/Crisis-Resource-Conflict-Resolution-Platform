@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models import Crisis, Demand, HelpRequest, OutboxMessage, Resource, User
+from app.roles import ADMIN
 from app.security import _token_from_request, get_db
 
 router = APIRouter(tags=["Observability"])
@@ -59,18 +60,19 @@ metrics_store = MetricsStore()
 
 def verify_metrics_access(request: Request, db: Session) -> None:
     """Verify that the caller is from an internal loopback network or has an active ADMIN session."""
+    settings: Settings = request.app.state.settings
     client_host = request.client.host if request.client else ""
-    if client_host in ("127.0.0.1", "::1", "localhost", "testclient"):
+    in_production = getattr(settings, "env", "") == "production"
+    if not in_production and client_host in ("127.0.0.1", "::1", "localhost", "testclient"):
         return
 
-    settings: Settings = request.app.state.settings
     token = _token_from_request(request, settings)
     if token:
         try:
             claims = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
             user_id = int(claims.get("sub", 0))
             user = db.get(User, user_id)
-            if user and user.active and user.role == "ADMIN":
+            if user and user.active and user.role == ADMIN:
                 return
         except Exception:
             pass

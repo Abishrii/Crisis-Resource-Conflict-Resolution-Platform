@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from conftest import PASSWORD, login
 
 
@@ -23,6 +25,43 @@ def test_login_throttle(client):
             == 401
         )
     assert client.post("/api/auth/login", json={"email": "aditi@example.org", "password": PASSWORD}).status_code == 429
+
+
+def test_meta_demo_accounts_only_include_known_demo_users(client):
+    assert (
+        client.post(
+            "/api/auth/register",
+            json={"name": "Meta User", "email": "meta-user@example.org", "password": "A-good-pass-1"},
+        ).status_code
+        == 200
+    )
+    accounts = client.get("/api/meta").json()["demo"]["accounts"]
+    emails = {account["email"] for account in accounts}
+    assert "meta-user@example.org" not in emails
+    assert {"aditi@example.org", "arjun@example.org", "meera@example.org", "seeker@example.org"} <= emails
+    assert all("password" not in account for account in accounts)
+
+
+def test_demo_login_switches_roles(client):
+    r = client.post("/api/auth/demo-login", json={"role": "crisis-manager"})
+    assert r.status_code == 200
+    assert r.json()["user"]["role"] == "crisis-manager"
+    assert client.get("/api/auth/me").json()["user"]["role"] == "crisis-manager"
+
+    r = client.post("/api/auth/demo-login", json={"role": "help-seeker"})
+    assert r.status_code == 200
+    assert r.json()["user"]["role"] == "help-seeker"
+    assert client.get("/api/auth/me").json()["user"]["role"] == "help-seeker"
+
+
+def test_demo_login_disabled_in_production(app, client):
+    app.state.settings = replace(app.state.settings, env="production", demo_login=True)
+    assert client.post("/api/auth/demo-login", json={"role": "admin"}).status_code == 404
+
+
+def test_meta_hides_demo_block_in_production(app, client):
+    app.state.settings = replace(app.state.settings, env="production", demo_login=True)
+    assert client.get("/api/meta").json()["demo"] is None
 
 
 def test_unauthenticated_requests_rejected(client):
@@ -93,8 +132,8 @@ def test_cross_site_post_blocked(client):
 
 
 def test_disabled_user_cannot_use_existing_session(app, admin):
-    uid = next(u for u in admin.get("/api/users").json() if u["email"] == "rohan@example.org")["id"]
-    v = login(app, "rohan@example.org")
+    uid = next(u for u in admin.get("/api/users").json() if u["email"] == "meera@example.org")["id"]
+    v = login(app, "meera@example.org")
     assert v.get("/api/workspace").status_code == 200
     assert admin.patch(f"/api/users/{uid}", json={"status": "disabled"}).status_code == 200
     assert v.get("/api/workspace").status_code == 401

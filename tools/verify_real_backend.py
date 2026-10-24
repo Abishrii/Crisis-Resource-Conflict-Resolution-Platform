@@ -100,19 +100,19 @@ def run_checks(base_url: str) -> str:
     assert r.json().get("title") == "Automated Real Backend Incident"
     print("   -> PASS: Created crisis verified in database.")
 
-    # 8. RBAC viewer check (403 forbidden)
-    print("8. Checking RBAC viewer permissions (rohan@example.org)...")
+    # 8. RBAC check (403 forbidden)
+    print("8. Checking RBAC coordinator permissions (meera@example.org)...")
     viewer_client = httpx.Client(base_url=base_url, timeout=10.0, follow_redirects=True)
     r = viewer_client.post(
         "/api/auth/login",
-        json={"email": "rohan@example.org", "password": "Resqsync#2026"},
+        json={"email": "meera@example.org", "password": "Resqsync#2026"},
     )
-    assert r.status_code == 200, f"Viewer login failed: {r.status_code}"
+    assert r.status_code == 200, f"Coordinator login failed: {r.status_code}"
     r = viewer_client.post("/api/crises", json=new_crisis_payload)
     assert r.status_code == 403, (
-        f"Expected 403 for viewer crisis creation, got {r.status_code}"
+        f"Expected 403 for coordinator crisis creation, got {r.status_code}"
     )
-    print("   -> PASS: Viewer correctly forbidden from mutating crises (403).")
+    print("   -> PASS: Coordinator correctly forbidden from mutating crises (403).")
 
     # 9. Document upload & download
     print("9. Checking file upload and download...")
@@ -235,16 +235,16 @@ def run_checks(base_url: str) -> str:
         "   -> PASS: Outbox endpoints, phone OTP dispatch, and code verification verified."
     )
 
-    # 16. Viewer cannot access admin outbox
+    # 16. Coordinator cannot access admin outbox
     print("16. Checking Outbox RBAC protection...")
     client.post("/api/auth/logout")
     client.post(
         "/api/auth/login",
-        json={"email": "rohan@example.org", "password": "Resqsync#2026"},
+        json={"email": "meera@example.org", "password": "Resqsync#2026"},
     )
     r_forbidden_outbox = client.get("/api/outbox")
     assert r_forbidden_outbox.status_code == 403, (
-        f"Expected 403 on viewer /api/outbox, got {r_forbidden_outbox.status_code}"
+        f"Expected 403 on coordinator /api/outbox, got {r_forbidden_outbox.status_code}"
     )
     # Unverified phone cannot enable SMS notifications
     r_sms_guard = client.put(

@@ -70,6 +70,7 @@ class Settings:
     max_photo_bytes: int = 2 * 1024 * 1024
     seed_demo_data: bool = True
     demo_password: str = "Resqsync#2026"
+    demo_login: bool = True
     allow_demo_reset: bool = True
     allow_registration: bool = True
     bootstrap_admin_email: str = ""
@@ -157,6 +158,7 @@ def get_settings() -> Settings:
         upload_dir=Path(os.environ.get("UPLOAD_DIR", str(Settings.upload_dir))),
         seed_demo_data=seed_demo,
         demo_password=demo_password or Settings.demo_password,
+        demo_login=_bool("DEMO_LOGIN", not production),
         allow_demo_reset=_bool("ALLOW_DEMO_RESET", not production),
         allow_registration=_bool("ALLOW_REGISTRATION", True),
         bootstrap_admin_email=os.environ.get("BOOTSTRAP_ADMIN_EMAIL", "").strip().lower(),

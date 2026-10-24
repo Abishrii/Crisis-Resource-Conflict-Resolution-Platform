@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import threading
-import time
-from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -14,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models import User, UserSession
+from app.rate_limit import RateLimiter
 from app.roles import PERMISSIONS, can
 
 _hasher = PasswordHash.recommended()
@@ -156,26 +154,22 @@ def require(permission: str, write: bool = False):
 
 # ---------------------------------------------------------------- login throttling
 class LoginThrottle:
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._failures: dict[str, deque[float]] = defaultdict(deque)
+    """Failure counter shared through Redis when available, with a per-process fallback."""
+
+    def __init__(self, redis_url: str = "", max_failures: int = 6, window_seconds: int = 900) -> None:
+        self._limiter = RateLimiter(redis_url)
+        self._max_failures = max_failures
+        self._window_seconds = window_seconds
 
     @staticmethod
     def _key(ip: str, email: str) -> str:
-        return hashlib.sha256(f"{ip}|{email.lower()}".encode()).hexdigest()
+        return "login:" + hashlib.sha256(f"{ip}|{email.lower()}".encode()).hexdigest()
 
-    def blocked(self, ip: str, email: str, settings: Settings) -> bool:
-        key, now = self._key(ip, email), time.monotonic()
-        with self._lock:
-            q = self._failures[key]
-            while q and now - q[0] > settings.login_window_seconds:
-                q.popleft()
-            return len(q) >= settings.login_max_failures
+    def blocked(self, ip: str, email: str) -> bool:
+        return self._limiter.is_blocked(self._key(ip, email), self._max_failures, self._window_seconds)
 
     def fail(self, ip: str, email: str) -> None:
-        with self._lock:
-            self._failures[self._key(ip, email)].append(time.monotonic())
+        self._limiter.is_allowed(self._key(ip, email), self._max_failures, self._window_seconds)
 
     def clear(self, ip: str, email: str) -> None:
-        with self._lock:
-            self._failures.pop(self._key(ip, email), None)
+        self._limiter.reset(self._key(ip, email))

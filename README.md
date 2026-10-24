@@ -33,11 +33,14 @@ dataset and demo accounts. **If you used the previous skeleton, delete the old `
 | aditi@example.org | Admin | full workspace + audit |
 | arjun@example.org | Crisis manager | workspace; request desk |
 | meera@example.org | Resource coordinator | workspace; dispatch queue |
-| rohan@example.org | Viewer | workspace, read-only |
 | seeker@example.org | Help seeker | request desk |
 
 Password for all: `Resqsync#2026`. Anyone can also create a **help-seeker** account from the sign-in dialog;
 staff accounts are created by an admin (People & access → Add a user; a temporary password is shown once).
+
+With `DEMO_LOGIN=true` (development default) the sign-in dialog shows one-click role cards, and the
+workspace header has a **Demo role** switcher so you can move between roles without signing out. Both use
+`POST /api/auth/demo-login` and are disabled in production.
 
 ## Run it as one server (production-style)
 
@@ -54,7 +57,7 @@ Put it behind HTTPS (the cookie is `Secure` in production). See `backend/.env.ex
 | Area | Behaviour |
 |---|---|
 | Auth | e-mail + password (Argon2), JWT in an HTTP-only SameSite cookie (or `Authorization: Bearer`), login throttling, password change, sessions end on role change / disable |
-| Roles | admin, crisis-manager, resource-coordinator, viewer, help-seeker — permission table in `app/roles.py`, enforced per endpoint |
+| Roles | admin, crisis-manager, resource-coordinator, help-seeker — permission table in `app/roles.py`, enforced per endpoint |
 | Conflicts | pools whose open requests exceed free stock are ranked by severity (65%) and response readiness (35%); filling never exceeds capacity |
 | Allocation | manual assign, override (manager/admin, reason required), approve-recommendation; contested pools need approval rights; row-locked / `BEGIN IMMEDIATE` so concurrent requests cannot over-allocate |
 | Shared inventory | incident allocations and individual help-request assignments draw from the same pools |
@@ -152,14 +155,18 @@ ResQSync includes production container orchestration files for turnkey deploymen
 ### 1. Docker & Docker Compose
 * **Multi-stage Dockerfile**: Builds the React/Vite SPA bundle with Node 20 in Stage 1, and packages the FastAPI ASGI backend inside a secure Python 3.12 slim runner executing as a non-privileged system user (`appuser`).
 * **docker-compose.yml**:
-  - `postgres`: PostgreSQL 16 Alpine with custom health check (`pg_isready`) and persistent named volume `postgres_data`.
+  - `postgres`: PostgreSQL 16 Alpine with a health check (`pg_isready`) and persistent named volume `postgres_data`. It is **not** published to the host.
+  - `redis`: Redis 7 for shared rate limiting and cross-worker live updates (not published to the host).
   - `api`: Containerized backend running with auto-run Alembic migrations on startup, health checks via `/api/health`, and persistent volume `uploads_data`.
-  - `reverse-proxy`: High-performance Caddy proxy handling gzip/zstd compression, TLS, and routing.
+  - `reverse-proxy`: Caddy with gzip/zstd and routing. Set `SITE_ADDRESS` to a real domain to enable automatic HTTPS; the default `:80` serves plain HTTP.
 
-To launch the full production stack:
+Compose requires `POSTGRES_PASSWORD`, `SECRET_KEY`, `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD`. Copy the template and fill it in:
 ```bash
+cp .env.example .env
+# edit .env: set strong database, JWT and admin credentials
 docker compose up -d --build
 ```
+Demo accounts and the one-click login cards are development conveniences. Keep `SEED_DEMO_DATA=false` and `DEMO_LOGIN=false` in production. If you serve HTTPS through a domain, also set `COOKIE_SECURE=true`.
 
 ### 2. Database Migrations (Alembic)
 Database schemas are version-controlled via Alembic. On startup with a PostgreSQL `DATABASE_URL`, the application automatically applies pending migrations to `head`.
@@ -204,10 +211,10 @@ Automated, engine-agnostic backup and restore utilities support both SQLite and 
 ## Production Checklist
 
 * [x] **Container Isolation**: Run with multi-stage Docker; backend runs as non-root `appuser`.
-* [x] **Environment Security**: Set `ENV=production`, configure a high-entropy 32+ character `SECRET_KEY`, and leave `SEED_DEMO_DATA=false`.
+* [x] **Environment Security**: Set `ENV=production`, configure a high-entropy 32+ character `SECRET_KEY`, set a strong `BOOTSTRAP_ADMIN_PASSWORD`, and leave `SEED_DEMO_DATA=false` / `DEMO_LOGIN=false`.
 * [x] **Database Scale & Concurrency**: Use PostgreSQL for multi-worker deployments; write transactions utilize `SELECT ... FOR UPDATE` row locks.
 * [x] **Schema Management**: Alembic migrations applied to `head` (`alembic upgrade head`).
-* [x] **Reverse Proxy & TLS**: Serve behind reverse proxy (Caddy/Nginx) enforcing HSTS (`max-age=31536000; includeSubDomains`) and HTTP/2 or HTTP/3.
+* [x] **Reverse Proxy & TLS**: Set `SITE_ADDRESS` to a real domain so Caddy provisions HTTPS, then set `COOKIE_SECURE=true`; HSTS is sent automatically once the request is HTTPS.
 * [x] **Backup Verification**: Schedule periodic execution of `tools/backup.py` to off-site object storage and routinely test recovery via `tools/test_backup_restore.py`.
 * [x] **Malware & Metadata Filtering**: Ensure ClamAV scanner daemon is reachable and EXIF scrubber is active for all crisis photo uploads.
 * [x] **Notification Deliverability**: Verify mobile numbers before granting SMS dispatch permissions and monitor the transactional outbox worker.

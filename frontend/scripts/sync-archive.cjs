@@ -2,7 +2,7 @@ const { readFileSync, writeFileSync } = require("node:fs");
 const { resolve } = require("node:path");
 const { Script } = require("node:vm");
 
-const archive = readFileSync(resolve(process.cwd(), "public/archive/index.html"), "utf8");
+const archive = readFileSync(resolve(process.cwd(), "public/archive/index.html"), "utf8").replace(/\r\n?/g, "\n");
 const style = archive.match(/<style>([\s\S]*?)<\/style>/)?.[1];
 const body = archive.match(/<body[^>]*>([\s\S]*?)<\/body>/)?.[1];
 const controller = archive.match(/<script>([\s\S]*?)<\/script>/)?.[1];

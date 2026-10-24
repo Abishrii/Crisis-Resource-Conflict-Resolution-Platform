@@ -150,7 +150,7 @@ export function initializeArchive() {
       {
         image:"https://images.pexels.com/photos/35356944/pexels-photo-35356944.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
         title:"A Network, Not an Island", place:"Kerala · Multi-organization access",
-        note:"Admin, crisis manager, resource coordinator, and viewer are distinct responsibilities. Explore the demo as each role to see how available actions change. This is a permissions preview, not secure authentication.",
+        note:"Admin, crisis manager, and resource coordinator are distinct responsibilities. Explore the demo as each role to see how available actions change. This is a permissions preview, not secure authentication.",
         alt:"A houseboat on Kerala's coconut-lined backwaters", credit:"Ravi Kant", source:"https://www.pexels.com/photo/tranquil-houseboat-in-kerala-s-coconut-lined-rivers-35356944/",
       },
       {
@@ -305,15 +305,15 @@ export function initializeArchive() {
       { id:"crises",name:"Crisis Management",label:"Crises",number:"01",description:"Keep track of what's happening, where, and how serious it is.",features:["Crisis event creation and tracking","Status updates saved for everyone: active, escalating, resolved","Severity levels and incident categories","Timeline of events and actions","Geographic coordinates, plotted locations, and map links"] },
       { id:"resources",name:"Resource Management",label:"Resources",number:"02",description:"See what you have, what's free, and what's already committed.",features:["Personnel, equipment, supplies, and facilities inventory","Availability and assigned-capacity tracking","Resource allocation to active crises","Capability profiles and specifications","Usage history and maintenance logs"] },
       { id:"conflicts",name:"Conflict Resolution",label:"Allocations",number:"03",description:"When two incidents need the same thing, decide who gets it first.",features:["Automatic detection of competing resource requests","Transparent severity / response-time priority scoring","Manual override and approval workflows","Stakeholder notifications and decision records","Negotiation, compromise, and decision history"] },
-      { id:"users",name:"Users & Roles",label:"People & access",number:"04",description:"Who's on the team, and what each person can do.",features:["Admin, crisis manager, resource coordinator, and viewer roles","Multi-organization and agency profiles","Role-based permissions enforced by the server","Individual sign-in with e-mail and password","Activity audit logs and account administration"] },
+      { id:"users",name:"Users & Roles",label:"People & access",number:"04",description:"Who's on the team, and what each person can do.",features:["Admin, crisis manager, and resource coordinator roles","Multi-organization and agency profiles","Role-based permissions enforced by the server","Individual sign-in with e-mail and password","Activity audit logs and account administration"] },
       { id:"collaboration",name:"Communication & Collaboration",label:"Messages & files",number:"05",description:"Updates, notes, and files, kept with the incident they belong to.",features:["Live messaging: new messages appear for everyone signed in","E-mail, SMS, and push preferences (e-mail needs SMTP configured)","Comment threads attached to crises and decisions","Document upload and download stored on the server","In-app stakeholder notifications"] },
       { id:"analytics",name:"Analytics & Reporting",label:"Reports",number:"06",description:"How resources are being used, and how quickly teams respond.",features:["Dashboard with calculated key metrics","Resource utilization reports by resource type","Response time analytics from sample records","Historical incident trends and date-range selection","Native PDF download and Excel-compatible XML export"] },
       { id:"decision",name:"Decision Support",label:"Scenario planning",number:"07",description:"Try an allocation on paper before you commit to it.",features:["Automated resource-allocation recommendation heuristic","Impact assessment through covered and uncovered demand","Scenario simulation with adjustable capacity and priority weights","Indicative INR cost and coverage analysis","Saved simulations with an audit trail"] },
     ];
     const moduleIds = ["overview",...featureModules.map((module) => module.id)];
-    const roleNames = { admin:"Admin","crisis-manager":"Crisis manager","resource-coordinator":"Resource coordinator",viewer:"Viewer","help-seeker":"Help seeker" };
+    const roleNames = { admin:"Admin","crisis-manager":"Crisis manager","resource-coordinator":"Resource coordinator","help-seeker":"Help seeker" };
     const severityNames = { 1:"Low",2:"Moderate",3:"Elevated",4:"High",5:"Critical" };
-    const ui = { module:"overview",role:"viewer",credential:null,crisisQuery:"",crisisFilter:"all",crisisTab:"list",selectedCrisis:"C-MUM",resourceQuery:"",resourceFilter:"all",selectedResource:null,communicationTab:"messages",channel:"network",analyticsDays:30,simulation:null,conflictResource:"R-VENT" };
+    const ui = { module:"overview",role:"help-seeker",credential:null,crisisQuery:"",crisisFilter:"all",crisisTab:"list",selectedCrisis:"C-MUM",resourceQuery:"",resourceFilter:"all",selectedResource:null,communicationTab:"messages",channel:"network",analyticsDays:30,simulation:null,conflictResource:"R-VENT" };
     let toastTimer = 0;
     const isoAgo = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
     // All records live on the ResQSync server; this object is only the last snapshot the server sent.
@@ -624,7 +624,7 @@ export function initializeArchive() {
       const adminOutboxSection = has("users") ? `<details class="ws-collapse" style="margin-top:24px"><summary style="display:flex;justify-content:space-between;align-items:center"><span>System Outbox &amp; Delivery Log (${(db.adminOutbox || []).length})</span><button type="button" class="work-btn" data-refresh-admin-outbox style="font-size:11px;padding:2px 8px">Refresh ↻</button></summary><div class="table-scroll" style="margin-top:10px"><table class="work-table"><thead><tr><th>Channel</th><th>Recipient</th><th>Status</th><th>Retries</th><th>Dispatched / Created</th></tr></thead><tbody>${(db.adminOutbox && db.adminOutbox.length) ? db.adminOutbox.map((msg) => `<tr><td><b>${esc(msg.channel.toUpperCase())}</b></td><td>${esc(msg.recipient)}</td><td><span class="state-label ${msg.status === 'sent' ? 'active' : msg.status === 'failed' ? 'critical' : msg.status === 'not_configured' ? 'high' : 'pending'}">${esc(msg.status)}</span>${msg.error ? `<br><small style="color:var(--red);font-size:10px">${esc(msg.error)}</small>` : ''}</td><td>${msg.attempts} / ${msg.maxAttempts}</td><td><small>${esc(msg.deliveredAt ? when(msg.deliveredAt) : when(msg.createdAt))} IST</small></td></tr>`).join("") : '<tr><td colspan="5" class="work-empty">No outbound notifications logged across the system yet. Click Refresh to load.</td></tr>'}</tbody></table></div></details>` : '';
       const retentionDays = Number(db.config?.dataRetentionDays || 0);
       const retentionBanner = `<div class="req-card" style="margin:20px 0;padding:12px 16px;background:var(--surface);border:1px solid var(--line-soft);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px"><div><span style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:0.06em">Data Retention &amp; Auto-Anonymisation:</span> <b style="margin-left:6px;color:var(--ink)">${retentionDays > 0 ? `${retentionDays} days (Active)` : 'Disabled (Default)'}</b><p style="margin:4px 0 0;font-size:11px;color:var(--dim)">Resolved emergency requests older than ${retentionDays > 0 ? retentionDays + ' days' : 'configured threshold'} have names, phones, addresses and verification photos erased.</p></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${has("users") ? `<button type="button" class="work-btn" data-run-retention-pass style="font-size:11px;padding:3px 8px">Run retention pass now ↻</button>` : ''}<button type="button" class="work-btn" data-open-privacy style="font-size:11px;padding:3px 8px">Privacy Notice 📜</button></div></div>`;
-      return `<div class="workspace-tools"><div><span class="module-count">${db.users.length} users / ${new Set(db.users.map((user) => user.organization)).size} organizations</span></div><button type="button" class="work-btn primary" data-toggle-form="newUser"${disabled("users")}>Add a user +</button></div><p class="workspace-warning">Every person signs in with their own account. These roles are enforced by the server on every action, not just in this screen.</p>${credentialBox()}<form class="work-form inline-form" id="newUser" data-work-form="user" hidden><h3>Create a user account</h3><div class="work-form-grid"><label>Name<input name="name" class="work-input" required maxlength="65" placeholder="Priya Sen"></label><label>Email<input name="email" class="work-input" type="email" required maxlength="120" placeholder="priya@example.org"></label><label>Organization<input name="organization" class="work-input" required maxlength="75" placeholder="Relief collective"></label><label>Role<select name="role" class="work-select">${roleOptions("viewer")}</select></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Create account</button><button type="button" class="work-btn" data-toggle-form="newUser">Cancel</button><p>A temporary password is generated and shown once. The person must change it after first sign-in.</p></div></form><div class="table-scroll"><table class="work-table"><thead><tr><th>User</th><th>Organization</th><th>Role</th><th>Access status</th></tr></thead><tbody>${db.users.map((user) => `<tr><td>${esc(user.name)}<small>${esc(user.email)}</small></td><td>${esc(user.organization)}</td><td><select class="work-select" data-user-role="${esc(user.id)}" aria-label="Role for ${esc(user.name)}"${disabled("users")}>${roleOptions(user.role)}</select></td><td>${esc(user.status)}${has("users") && String(user.id) !== String(db.me?.id) ? `<div class="detail-controls"><button type="button" class="text-action" data-user-status="${esc(user.id)}" data-next="${user.status === "Active" ? "disabled" : "active"}">${user.status === "Active" ? "Disable" : "Re-enable"}</button><button type="button" class="text-action" data-user-reset="${esc(user.id)}">Reset password</button><button type="button" class="text-action danger-text" data-user-anonymise="${esc(user.id)}" style="color:#fca5a5">Anonymise 🛡</button></div>` : ""}</td></tr>`).join("")}</tbody></table></div>${passwordForm()}<details class="ws-collapse"><summary>What each role can do<i aria-hidden="true">+</i></summary><div class="table-scroll"><table class="role-matrix"><thead><tr><th>Action</th><th>Admin</th><th>Crisis manager</th><th>Resource coordinator</th><th>Viewer</th></tr></thead><tbody><tr><td>View incidents &amp; reports</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr><tr><td>Create &amp; update crises</td><td>Yes</td><td>Yes</td><td>—</td><td>—</td></tr><tr><td>Edit inventory &amp; maintenance</td><td>Yes</td><td>—</td><td>Yes</td><td>—</td></tr><tr><td>Assign available resources</td><td>Yes</td><td>Yes</td><td>Yes</td><td>—</td></tr><tr><td>Approve or override priorities</td><td>Yes</td><td>Yes</td><td>—</td><td>—</td></tr><tr><td>Manage users &amp; roles</td><td>Yes</td><td>—</td><td>—</td><td>—</td></tr></tbody></table></div></details>${retentionBanner}<div style="display:flex;justify-content:space-between;align-items:center;margin:24px 0 10px"><h3 class="section-title" style="margin:0">Activity audit log</h3><a class="work-btn" href="/api/exports/audit.csv" download="audit.csv" style="text-decoration:none">Export CSV ↗</a></div>${auditList(db.audit.slice(0,12))}${adminOutboxSection}`;
+      return `<div class="workspace-tools"><div><span class="module-count">${db.users.length} users / ${new Set(db.users.map((user) => user.organization)).size} organizations</span></div><button type="button" class="work-btn primary" data-toggle-form="newUser"${disabled("users")}>Add a user +</button></div><p class="workspace-warning">Every person signs in with their own account. These roles are enforced by the server on every action, not just in this screen.</p>${credentialBox()}<form class="work-form inline-form" id="newUser" data-work-form="user" hidden><h3>Create a user account</h3><div class="work-form-grid"><label>Name<input name="name" class="work-input" required maxlength="65" placeholder="Priya Sen"></label><label>Email<input name="email" class="work-input" type="email" required maxlength="120" placeholder="priya@example.org"></label><label>Organization<input name="organization" class="work-input" required maxlength="75" placeholder="Relief collective"></label><label>Role<select name="role" class="work-select">${roleOptions("crisis-manager")}</select></label></div><div class="form-actions"><button type="submit" class="work-btn primary">Create account</button><button type="button" class="work-btn" data-toggle-form="newUser">Cancel</button><p>A temporary password is generated and shown once. The person must change it after first sign-in.</p></div></form><div class="table-scroll"><table class="work-table"><thead><tr><th>User</th><th>Organization</th><th>Role</th><th>Access status</th></tr></thead><tbody>${db.users.map((user) => `<tr><td>${esc(user.name)}<small>${esc(user.email)}</small></td><td>${esc(user.organization)}</td><td><select class="work-select" data-user-role="${esc(user.id)}" aria-label="Role for ${esc(user.name)}"${disabled("users")}>${roleOptions(user.role)}</select></td><td>${esc(user.status)}${has("users") && String(user.id) !== String(db.me?.id) ? `<div class="detail-controls"><button type="button" class="text-action" data-user-status="${esc(user.id)}" data-next="${user.status === "Active" ? "disabled" : "active"}">${user.status === "Active" ? "Disable" : "Re-enable"}</button><button type="button" class="text-action" data-user-reset="${esc(user.id)}">Reset password</button><button type="button" class="text-action danger-text" data-user-anonymise="${esc(user.id)}" style="color:#fca5a5">Anonymise 🛡</button></div>` : ""}</td></tr>`).join("")}</tbody></table></div>${passwordForm()}<details class="ws-collapse"><summary>What each role can do<i aria-hidden="true">+</i></summary><div class="table-scroll"><table class="role-matrix"><thead><tr><th>Action</th><th>Admin</th><th>Crisis manager</th><th>Resource coordinator</th></tr></thead><tbody><tr><td>View incidents &amp; reports</td><td>Yes</td><td>Yes</td><td>Yes</td></tr><tr><td>Create &amp; update crises</td><td>Yes</td><td>Yes</td><td>—</td></tr><tr><td>Edit inventory &amp; maintenance</td><td>Yes</td><td>—</td><td>Yes</td></tr><tr><td>Assign available resources</td><td>Yes</td><td>Yes</td><td>Yes</td></tr><tr><td>Approve or override priorities</td><td>Yes</td><td>Yes</td><td>—</td></tr><tr><td>Manage users &amp; roles</td><td>Yes</td><td>—</td><td>—</td></tr></tbody></table></div></details>${retentionBanner}<div style="display:flex;justify-content:space-between;align-items:center;margin:24px 0 10px"><h3 class="section-title" style="margin:0">Activity audit log</h3><a class="work-btn" href="/api/exports/audit.csv" download="audit.csv" style="text-decoration:none">Export CSV ↗</a></div>${auditList(db.audit.slice(0,12))}${adminOutboxSection}`;
     }
 
     function channelOptions(chosen) {
@@ -1093,7 +1093,7 @@ export function initializeArchive() {
     });
     listen(document,"change",(event) => {
       const target = event.target;
-      if (target.id === "demoRole") { target.value = ui.role; return; }
+      if (target.id === "demoRole" || target.id === "deskDemoRole") { switchDemoRole(target.value); return; }
       if (target.id === "crisisFilter") { ui.crisisFilter = target.value; renderWorkspace("crises"); return; }
       if (target.id === "resourceFilter") { ui.resourceFilter = target.value; renderWorkspace("resources"); return; }
       if (target.id === "messageChannel") { ui.channel = target.value; renderWorkspace("collaboration"); return; }
@@ -1817,24 +1817,24 @@ export function initializeArchive() {
     // ---- Accounts, live updates and the role desks ----
     const STATUS_ORDER=["opened","verified","assigned","enroute","resolved"];
     const STATUS_LABEL={opened:"Opened",verified:"Verified",assigned:"Assigned",enroute:"En route",resolved:"Resolved"};
-    const ROLE_ICONS={seeker:'<path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.4h.01"/>',manager:'<path d="M13 2.5 4.5 13.5H12l-1 8 8.5-11H12l1-8Z"/>',coordinator:'<path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4v-9Z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/>',admin:'<path d="M12 3 20 6v5.5c0 4.4-3 7.8-8 9.5-5-1.7-8-5.1-8-9.5V6l8-3Z"/>',viewer:'<circle cx="12" cy="12" r="3.2"/><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>'};
+    const ROLE_ICONS={seeker:'<path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.4h.01"/>',manager:'<path d="M13 2.5 4.5 13.5H12l-1 8 8.5-11H12l1-8Z"/>',coordinator:'<path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4v-9Z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/>',admin:'<path d="M12 3 20 6v5.5c0 4.4-3 7.8-8 9.5-5-1.7-8-5.1-8-9.5V6l8-3Z"/>'};
     const ROLES={
       seeker:{label:"Help seeker",blurb:"Raise a help request and follow it from opened to resolved, like tracking a delivery.",tabs:["Raise a request","Track my requests"]},
       manager:{label:"Crisis manager",blurb:"Verify incoming requests and assign the right resource to each one.",tabs:["Incoming requests","Incident board"]},
       coordinator:{label:"Resource coordinator",blurb:"Hold the inventory, confirm dispatches, keep stock honest.",tabs:["Dispatch queue","Inventory"]},
       admin:{label:"Admin",blurb:"Full oversight of every request, resource and decision in the network.",tabs:["Overview","Audit trail"]},
-      viewer:{label:"Viewer",blurb:"Read-only access to incidents, resources and reports.",tabs:[]},
     };
-    const DESK_KEY={"help-seeker":"seeker","crisis-manager":"manager","resource-coordinator":"coordinator",admin:"admin",viewer:"viewer"};
-    const PLATFORM_ROLES=["admin","crisis-manager","resource-coordinator","viewer"];
+    const DESK_KEY={"help-seeker":"seeker","crisis-manager":"manager","resource-coordinator":"coordinator",admin:"admin"};
+    const PLATFORM_ROLES=["admin","crisis-manager","resource-coordinator"];
     let session=null;               // { user, role } once the server has confirmed who is signed in
     let meta=null;                  // public server information (registration allowed? demo accounts?)
     let desk={ requests:[],resources:[],incidents:[],audit:[],revision:0 };
     const canUsePlatform=()=>Boolean(session&&PLATFORM_ROLES.includes(session.user.role));
-    const hasDesk=()=>Boolean(session&&session.role!=="viewer");
+    const hasDemoMode=()=>Boolean(meta&&meta.demo&&meta.demo.accounts&&meta.demo.accounts.length);
+    const hasDesk=()=>Boolean(session&&session.role);
     function setSession(user){
-      session=user?{user,role:DESK_KEY[user.role]||"viewer"}:null;
-      ui.role=user?user.role:"viewer";
+      session=user?{user,role:DESK_KEY[user.role]||"seeker"}:null;
+      ui.role=user?user.role:"help-seeker";
       syncAuthUI();
     }
     const authBtn=$("#authBtn");
@@ -1865,6 +1865,19 @@ export function initializeArchive() {
         phone_label: "Phone (optional)",
         demo_accounts: "Demo accounts",
         forgot_password: "Forgot password?",
+        direct_access: "Direct access",
+        one_click: "One-click sign in",
+        or_manual: "or enter credentials manually",
+        email_chip: "Email",
+        password_chip: "Password",
+        privacy_notice: "Privacy Notice",
+        show_password: "Show",
+        hide_password: "Hide",
+        demo_mode: "Demo mode",
+        demo_mode_note: "Evaluation mode — one-click access is disabled in production.",
+        demo_role: "Demo role",
+        signed_in_as: "Signed in as",
+        evaluation_only: "Evaluation only",
         desk_eyebrow: "ROLE WORKSPACE",
         seeker_title: "Help Seeker Desk",
         seeker_blurb: "Raise emergency requests for food, rescue, shelter, medical help, or evacuation. Responders coordinate immediately.",
@@ -1913,6 +1926,19 @@ export function initializeArchive() {
         phone_label: "फ़ोन (वैकल्पिक)",
         demo_accounts: "त्वरित डेमो खाते",
         forgot_password: "पासवर्ड भूल गए?",
+        direct_access: "सीधा प्रवेश",
+        one_click: "एक क्लिक में साइन इन",
+        or_manual: "या मैन्युअल रूप से क्रेडेंशियल दर्ज करें",
+        email_chip: "ईमेल",
+        password_chip: "पासवर्ड",
+        privacy_notice: "गोपनीयता सूचना",
+        show_password: "दिखाएँ",
+        hide_password: "छिपाएँ",
+        demo_mode: "डेमो मोड",
+        demo_mode_note: "मूल्यांकन मोड — वन-क्लिक प्रवेश प्रोडक्शन में बंद रहता है।",
+        demo_role: "डेमो भूमिका",
+        signed_in_as: "साइन इन किया गया",
+        evaluation_only: "केवल मूल्यांकन हेतु",
         desk_eyebrow: "भूमिका कार्यक्षेत्र",
         seeker_title: "सहायता अनुरोध डेस्क",
         seeker_blurb: "राहत, बचाव, भोजन या चिकित्सा सहायता के लिए आपातकालीन अनुरोध दर्ज करें। राहत दल तुरंत समन्वय करते हैं।",
@@ -1963,6 +1989,31 @@ export function initializeArchive() {
       const deskBtn=$("#openDeskBtn"); if(deskBtn) deskBtn.hidden=!(session&&hasDesk()&&canUsePlatform());
       const platformBtn=$("#openPlatformBtn"); if(platformBtn) platformBtn.hidden=!canUsePlatform();
       $$("[data-lang-toggle]").forEach((b)=>{ b.textContent = currentLang === "hi" ? "हिंदी | EN" : "EN | हिंदी"; });
+      syncDemoControls();
+    }
+    function syncDemoControls(){
+      const demo=Boolean(session&&hasDemoMode());
+      const main=$("#demoRole"), desk=$("#deskDemoRole");
+      if(main){ main.disabled=!demo; if(session) main.value=session.user.role; main.setAttribute("aria-label",t(demo?"demo_role":"signed_in_as")); }
+      if(desk){ desk.disabled=!demo; if(session) desk.value=session.user.role; desk.setAttribute("aria-label",t("demo_role")); }
+      const label=$("#demoRoleLabel"); if(label) label.textContent=t(demo?"demo_role":"signed_in_as");
+      const chip=$("#demoChip"); if(chip){ chip.hidden=!demo; chip.textContent=t("demo_mode"); }
+      const deskChip=$("#deskDemoChip"); if(deskChip){ deskChip.hidden=!demo; deskChip.textContent=t("demo_mode"); }
+      const wrap=$("#deskDemoRoleWrap"); if(wrap){ wrap.hidden=!demo; const span=wrap.querySelector("span"); if(span) span.textContent=t("demo_role"); }
+    }
+    async function switchDemoRole(role){
+      if(!session||!hasDemoMode()||!role||role===session.user.role){ syncDemoControls(); return; }
+      const main=$("#demoRole"), desk=$("#deskDemoRole");
+      if(main) main.disabled=true;
+      if(desk) desk.disabled=true;
+      try{
+        const data=await apiJson("POST","/auth/demo-login",{role});
+        await startSession(data.user);
+      }catch(err){
+        showToast(err.message||"Could not switch demo role.");
+      }finally{
+        syncDemoControls();
+      }
     }
 
     // ---- data loading ----
@@ -2023,7 +2074,7 @@ export function initializeArchive() {
     // ---- sign in / out ----
     async function loadMeta(){ try{ meta=await apiJson("GET","/meta"); }catch{ meta=null; } }
     async function bootSession(){
-      loadMeta();
+      await loadMeta();
       try{
         const data=await apiJson("GET","/auth/me");
         setSession(data.user);
@@ -2088,61 +2139,57 @@ export function initializeArchive() {
       }
       const canRegister=!meta||meta.allowRegistration;
       if(register){
-        $("#roleGrid").innerHTML=`<form id="registerForm" class="work-form login-form" novalidate><label>${t("name_label")}<input class="work-input" name="name" required minlength="2" maxlength="80" autocomplete="name"></label><label>${t("email_label")}<input class="work-input" name="email" type="email" required maxlength="254" autocomplete="username"></label><label>${t("phone_label")}<input class="work-input" name="phone" type="tel" maxlength="30" autocomplete="tel"></label><label>${t("password_label")}<input class="work-input" name="password" type="password" required minlength="10" maxlength="128" autocomplete="new-password"></label><p class="login-hint">At least 10 characters, with letters and a number or symbol.</p><p class="login-error" id="loginError" role="alert" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("create_account_btn")}</button><button class="work-btn" type="button" data-login-mode="signin">${t("already_account")}</button></div></form>`;
+        $("#roleGrid").innerHTML=`<form id="registerForm" class="work-form login-form" novalidate><label>${t("name_label")}<input class="work-input" name="name" required minlength="2" maxlength="80" autocomplete="name"></label><label>${t("email_label")}<input class="work-input" name="email" type="email" required maxlength="254" autocomplete="username"></label><label>${t("phone_label")}<input class="work-input" name="phone" type="tel" maxlength="30" autocomplete="tel"></label><label>${t("password_label")}<span class="password-wrap"><input class="work-input" name="password" type="password" required minlength="10" maxlength="128" autocomplete="new-password"><button type="button" class="password-toggle" data-toggle-password aria-label="${esc(t("show_password"))}" aria-pressed="false">${t("show_password")}</button></span></label><p class="login-hint">At least 10 characters, with letters and a number or symbol.</p><p class="login-error" id="loginError" role="alert" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("create_account_btn")}</button><button class="work-btn" type="button" data-login-mode="signin">${t("already_account")}</button></div></form>`;
       }else if(forgot){
         $("#roleGrid").innerHTML=`<form id="forgotForm" class="work-form login-form" novalidate><label>${t("email_label")}<input class="work-input" name="email" type="email" required maxlength="254" autocomplete="username"></label><p class="login-error" id="loginError" role="alert" hidden></p><p class="login-hint" id="loginSuccess" style="color:var(--gold,#d4af37)" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("send_reset")}</button><button class="work-btn" type="button" data-login-mode="reset">${t("have_token")}</button><button class="work-btn" type="button" data-login-mode="signin">${t("back_signin")}</button></div></form>`;
       }else if(reset){
-        $("#roleGrid").innerHTML=`<form id="resetForm" class="work-form login-form" novalidate><label>Reset token<input class="work-input" name="token" required maxlength="128" placeholder="Paste token from email" value="${esc(presetResetToken||"")}"></label><label>${t("password_label")}<input class="work-input" name="password" type="password" required minlength="10" maxlength="128" autocomplete="new-password"></label><p class="login-hint">At least 10 characters, with letters and a number or symbol.</p><p class="login-error" id="loginError" role="alert" hidden></p><p class="login-hint" id="loginSuccess" style="color:var(--gold,#d4af37)" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("set_new_pwd")}</button><button class="work-btn" type="button" data-login-mode="signin">${t("back_signin")}</button></div></form>`;
+        $("#roleGrid").innerHTML=`<form id="resetForm" class="work-form login-form" novalidate><label>Reset token<input class="work-input" name="token" required maxlength="128" placeholder="Paste token from email" value="${esc(presetResetToken||"")}"></label><label>${t("password_label")}<span class="password-wrap"><input class="work-input" name="password" type="password" required minlength="10" maxlength="128" autocomplete="new-password"><button type="button" class="password-toggle" data-toggle-password aria-label="${esc(t("show_password"))}" aria-pressed="false">${t("show_password")}</button></span></label><p class="login-hint">At least 10 characters, with letters and a number or symbol.</p><p class="login-error" id="loginError" role="alert" hidden></p><p class="login-hint" id="loginSuccess" style="color:var(--gold,#d4af37)" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("set_new_pwd")}</button><button class="work-btn" type="button" data-login-mode="signin">${t("back_signin")}</button></div></form>`;
       }else{
         const baseRoles = [
-          { role: "admin", name: "Crisis Director", tag: "Admin", email: "admin@resqsync.org", password: "Admin#2026", desc: "Full administrative oversight, audit logs & governance", icon: '<path d="M12 3 20 6v5.5c0 4.4-3 7.8-8 9.5-5-1.7-8-5.1-8-9.5V6l8-3Z"/>' },
-          { role: "crisis-manager", name: "Crisis Manager", tag: "Crisis Manager", email: "manager@resqsync.org", password: "Resqsync#2026", desc: "Incident verification, allocation conflict & emergency dispatch", icon: '<path d="M13 2.5 4.5 13.5H12l-1 8 8.5-11H12l1-8Z"/>' },
-          { role: "resource-coordinator", name: "Resource Coordinator", tag: "Logistics", email: "coordinator@resqsync.org", password: "Resqsync#2026", desc: "Inventory management, dispatch tracking & logistics fleet", icon: '<path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4v-9Z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/>' },
-          { role: "viewer", name: "Field Viewer", tag: "Observer", email: "viewer@resqsync.org", password: "Resqsync#2026", desc: "Live situational telemetry, conflict maps & view-only reports", icon: '<circle cx="12" cy="12" r="3.2"/><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>' },
-          { role: "help-seeker", name: "Citizen Seeker", tag: "Help Seeker", email: "citizen@resqsync.org", password: "Resqsync#2026", desc: "Raise emergency SOS relief requests & track responder arrival", icon: '<path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.4h.01"/>' }
+          { role: "admin", name: "Crisis Director", tag: "Admin", email: "admin@resqsync.org", desc: "Full administrative oversight, audit logs & governance", can: "Manage users · Approve allocations", icon: '<path d="M12 3 20 6v5.5c0 4.4-3 7.8-8 9.5-5-1.7-8-5.1-8-9.5V6l8-3Z"/>' },
+          { role: "crisis-manager", name: "Crisis Manager", tag: "Crisis Manager", email: "manager@resqsync.org", desc: "Incident verification, allocation conflict & emergency dispatch", can: "Create incidents · Verify requests", icon: '<path d="M13 2.5 4.5 13.5H12l-1 8 8.5-11H12l1-8Z"/>' },
+          { role: "resource-coordinator", name: "Resource Coordinator", tag: "Logistics", email: "coordinator@resqsync.org", desc: "Inventory management, dispatch tracking & logistics fleet", can: "Edit inventory · Dispatch units", icon: '<path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4v-9Z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/>' },
+          { role: "help-seeker", name: "Citizen Seeker", tag: "Help Seeker", email: "citizen@resqsync.org", desc: "Raise emergency SOS relief requests & track responder arrival", can: "Raise requests · Track status", icon: '<path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.4h.01"/>' }
         ];
         const serverAccounts = (meta && meta.demo && meta.demo.accounts) || [];
         const rolesToDisplay = baseRoles.map((br) => {
-          const found = serverAccounts.find((sa) => sa.role === br.role || (sa.email && sa.email.toLowerCase() === br.email.toLowerCase()));
-          if (found) {
-            return {
-              ...br,
-              name: found.name || br.name,
-              email: found.email || br.email,
-              password: found.password || (found.role === "admin" ? "Admin#2026" : (meta && meta.demo && meta.demo.password) || br.password)
-            };
-          }
-          return br;
-        });
-        const quickRolesHtml = `
-          <div class="role-section-title">⚡ Quick Role Login (Direct 1-Click Access)</div>
+          const byEmail = serverAccounts.find((sa) => sa.email && sa.email.toLowerCase() === br.email.toLowerCase());
+          const byRole = serverAccounts.find((sa) => sa.role === br.role);
+          const found = byEmail || byRole;
+          if (!found) return null;
+          return { ...br, name: found.name || br.name, email: found.email || br.email };
+        }).filter(Boolean);
+        const quickRolesHtml = rolesToDisplay.length ? `
+          <div class="role-section-title">${t("direct_access")} <span class="role-section-note">${t("one_click")} · ${t("demo_mode")} · ${t("evaluation_only")}</span></div>
           <div class="role-list" style="margin-bottom:14px">
             ${rolesToDisplay.map((r) => `
-              <button type="button" class="role-card" data-direct-login data-email="${esc(r.email)}" data-password="${esc(r.password)}" aria-label="Direct sign in as ${esc(r.name)}">
+              <button type="button" class="role-card" data-direct-login data-role="${esc(r.role)}" aria-label="${esc(t("signin_btn"))}: ${esc(r.name)}" title="${esc(r.desc)}">
                 <span class="role-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">${r.icon}</svg></span>
                 <div class="role-card-text">
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                     <b>${esc(r.name)}</b>
                     <span class="role-card-tag">${esc(r.tag)}</span>
                   </div>
-                  <small>${esc(r.desc)}</small>
+                  <span class="role-card-can">${esc(r.can)}</span>
                   <div class="role-card-meta">
-                    <span class="role-card-cred" title="Email address">📧 ${esc(r.email)}</span>
-                    <span class="role-card-cred" title="Password">🔑 ${esc(r.password)}</span>
+                    <span class="role-card-cred"><span>${esc(t("email_chip"))}</span>${esc(r.email)}</span>
                   </div>
                 </div>
-                <span class="role-arrow">↗</span>
+                <span class="role-arrow" aria-hidden="true">↗</span>
               </button>
             `).join("")}
           </div>
-        `;
-        $("#roleGrid").innerHTML=`${quickRolesHtml}<div class="login-divider">or enter credentials manually</div><form id="loginForm" class="work-form login-form" novalidate><label>${t("email_label")}<input class="work-input" name="email" type="email" required maxlength="254" autocomplete="username"></label><label>${t("password_label")}<input class="work-input" name="password" type="password" required maxlength="128" autocomplete="current-password"></label><div style="display:flex;justify-content:flex-end;margin-top:-4px;margin-bottom:8px"><button type="button" class="text-action" data-login-mode="forgot" style="font-size:12px">${t("forgot_password")}</button></div><p class="login-error" id="loginError" role="alert" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("signin_btn")}</button>${canRegister?`<button class="work-btn" type="button" data-login-mode="register">${t("need_help_account")}</button>`:""}</div></form>`;
+        ` : "";
+        const divider = rolesToDisplay.length ? `<div class="login-divider">${t("or_manual")}</div>` : "";
+        $("#roleGrid").innerHTML=`${quickRolesHtml}${divider}<form id="loginForm" class="work-form login-form" novalidate><label>${t("email_label")}<input class="work-input" name="email" type="email" required maxlength="254" autocomplete="username"></label><label>${t("password_label")}<span class="password-wrap"><input class="work-input" name="password" type="password" required maxlength="128" autocomplete="current-password"><button type="button" class="password-toggle" data-toggle-password aria-label="${esc(t("show_password"))}" aria-pressed="false">${t("show_password")}</button></span></label><div style="display:flex;justify-content:flex-end;margin-top:-4px;margin-bottom:8px"><button type="button" class="text-action" data-login-mode="forgot" style="font-size:12px">${t("forgot_password")}</button></div><p class="login-error" id="loginError" role="alert" hidden></p><div class="form-actions"><button class="work-btn primary" type="submit">${t("signin_btn")}</button>${canRegister?`<button class="work-btn" type="button" data-login-mode="register">${t("need_help_account")}</button>`:""}</div></form>`;
       }
 
-      $(".login-note").textContent=t("signin_note");
+      $(".login-note").textContent=t("signin_note")+(hasDemoMode()?" "+t("demo_mode_note"):"");
+      const privacyBtn=$(".login-privacy"); if(privacyBtn) privacyBtn.textContent=t("privacy_notice");
     }
-    function openLogin(mode="signin"){
+    async function openLogin(mode="signin"){
       if(introActive) finishIntro({restoreFocus:false});
+      if(!meta) await loadMeta();
       const login=$("#login");
       renderLogin(mode);
       login.classList.add("is-open"); login.inert=false; login.setAttribute("aria-hidden","false");
@@ -2185,6 +2232,7 @@ export function initializeArchive() {
       if(success) success.hidden=true;
       if(!form.reportValidity()) return;
       submit.disabled=true;
+      form.setAttribute("aria-busy","true");
       try{
         if(form.id==="loginForm"){
           const data=await apiJson("POST","/auth/login",{email:get("email"),password:String(values.get("password")||"")});
@@ -2204,6 +2252,8 @@ export function initializeArchive() {
       }catch(error){
         if(failure){ failure.textContent=error.message; failure.hidden=false; }
         submit.disabled=false;
+      }finally{
+        form.removeAttribute("aria-busy");
       }
     });
 
@@ -2367,28 +2417,35 @@ export function initializeArchive() {
       if(e.target === $("#deleteAccountModal")){ closeDeleteAccountModal(); return; }
       if(e.target === $("#privacyModal")){ closePrivacyModal(); return; }
       if(e.target.closest("[data-lang-toggle]")){ e.preventDefault(); toggleLang(); return; }
+      const pwToggle=e.target.closest("[data-toggle-password]");
+      if(pwToggle){
+        e.preventDefault();
+        const input=pwToggle.parentElement.querySelector("input");
+        if(input){
+          const show=input.type==="password";
+          input.type=show?"text":"password";
+          pwToggle.textContent=t(show?"hide_password":"show_password");
+          pwToggle.setAttribute("aria-label",t(show?"hide_password":"show_password"));
+          pwToggle.setAttribute("aria-pressed",String(show));
+          input.focus({preventScroll:true});
+        }
+        return;
+      }
       const mode=e.target.closest("[data-login-mode]");
       if(mode){ renderLogin(mode.dataset.loginMode); const first=$("#roleGrid input"); if(first) first.focus(); return; }
       const directLoginBtn=e.target.closest("[data-direct-login]");
       if(directLoginBtn){
         e.preventDefault();
-        const email=directLoginBtn.dataset.email;
-        const password=directLoginBtn.dataset.password;
-        const form=$("#loginForm");
-        if(form){
-          form.email.value=email;
-          form.password.value=password;
-        }
+        const role=directLoginBtn.dataset.role;
         const failure=$("#loginError");
         if(failure) failure.hidden=true;
-        directLoginBtn.style.opacity="0.5";
-        directLoginBtn.style.pointerEvents="none";
-        apiJson("POST","/auth/login",{email,password})
+        const cards=Array.from(document.querySelectorAll("[data-direct-login]"));
+        cards.forEach((card)=>{ card.classList.add("is-loading"); card.setAttribute("aria-busy","true"); });
+        apiJson("POST","/auth/demo-login",{role})
           .then((data)=>startSession(data.user))
           .catch((err)=>{
             if(failure){ failure.textContent=err.message||"Login failed."; failure.hidden=false; }
-            directLoginBtn.style.opacity="";
-            directLoginBtn.style.pointerEvents="";
+            cards.forEach((card)=>{ card.classList.remove("is-loading"); card.removeAttribute("aria-busy"); });
           });
         return;
       }

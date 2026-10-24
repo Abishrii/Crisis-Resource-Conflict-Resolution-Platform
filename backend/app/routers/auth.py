@@ -10,8 +10,10 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.models import OutboxMessage, PasswordResetToken, User, UserSession
+from app.roles import ALL_ROLES
 from app.schemas.api import (
     DeleteAccountIn,
+    DemoLoginIn,
     ForgotIn,
     LoginIn,
     PasswordIn,
@@ -47,18 +49,30 @@ router = APIRouter(prefix="/api", tags=["Auth"])
 @router.get("/meta")
 def meta(request: Request, db: Session = Depends(get_db)):
     s = request.app.state.settings
-    users = db.scalars(select(User).order_by(User.id)).all()
-    accounts = []
-    for u in users:
-        pw = (s.bootstrap_admin_password or "Admin#2026") if u.role == "admin" else s.demo_password
-        accounts.append({"name": u.name, "email": u.email, "role": u.role, "password": pw})
-    if not accounts:
-        accounts = demo_accounts(s)
+    demo = None
+    if s.demo_login and not s.is_production:
+        users = db.scalars(select(User).where(User.status == "active").order_by(User.id)).all()
+        existing = {u.email.lower(): u for u in users}
+        # Prefer the canonical demo account for each role, then fall back to any existing account.
+        chosen: dict[str, User] = {}
+        for candidate in demo_accounts(s):
+            user = existing.get(candidate["email"].lower())
+            if user and user.role not in chosen:
+                chosen[user.role] = user
+        for user in users:
+            chosen.setdefault(user.role, user)
+        accounts = [
+            {"name": chosen[role].name, "email": chosen[role].email, "role": role}
+            for role in ALL_ROLES
+            if role in chosen
+        ]
+        if accounts:
+            demo = {"accounts": accounts}
     return {
         "name": "ResQSync",
         "environment": s.env,
         "allowRegistration": s.allow_registration,
-        "demo": {"accounts": accounts, "password": s.demo_password},
+        "demo": demo,
     }
 
 
@@ -116,42 +130,80 @@ def register(body: RegisterIn, request: Request, response: Response, db: Session
     return {"user": me_json(user)}
 
 
+def _sign_in(
+    db: Session,
+    user: User,
+    request: Request,
+    response: Response,
+    settings,
+    action: str = "Signed in",
+    detail: str = "",
+) -> str:
+    now = datetime.now(timezone.utc)
+    user.last_login_at = now
+    session_id = uuid.uuid4().hex
+    ip = request.client.host if request.client else "?"
+    user_agent = request.headers.get("user-agent", "")[:255]
+    db.add(
+        UserSession(
+            id=session_id,
+            user_id=user.id,
+            token_version=user.token_version,
+            ip_address=ip,
+            user_agent=user_agent,
+            created_at=now,
+            last_seen_at=now,
+            revoked=False,
+        )
+    )
+    audit(db, actor_of(user), action, detail)
+    db.commit()
+    token = create_token(user, settings, session_id=session_id)
+    set_session_cookie(response, token, settings)
+    return token
+
+
 @router.post("/auth/login")
 def login(body: LoginIn, request: Request, response: Response, db: Session = Depends(get_write_db)):
     s = request.app.state.settings
     throttle = request.app.state.throttle
     ip = request.client.host if request.client else "?"
     email = body.email.lower()
-    if throttle.blocked(ip, email, s):
+    if throttle.blocked(ip, email):
         raise HTTPException(429, "Too many failed sign-in attempts. Wait a few minutes and try again.")
     user = db.scalar(select(User).where(User.email == email))
     ok = verify_password(body.password, user.password_hash if user else None)
-    if not user or not ok or not user.active:
+    if not user or not ok or not user.active or user.role not in ALL_ROLES:
         throttle.fail(ip, email)
         raise HTTPException(401, "Invalid e-mail or password.")
     throttle.clear(ip, email)
 
-    now = datetime.now(timezone.utc)
-    user.last_login_at = now
-    session_id = uuid.uuid4().hex
-    user_agent = request.headers.get("user-agent", "")[:255]
-    sess = UserSession(
-        id=session_id,
-        user_id=user.id,
-        token_version=user.token_version,
-        ip_address=ip,
-        user_agent=user_agent,
-        created_at=now,
-        last_seen_at=now,
-        revoked=False,
-    )
-    db.add(sess)
-
-    audit(db, actor_of(user), "Signed in", "")
-    db.commit()
-    token = create_token(user, s, session_id=session_id)
-    set_session_cookie(response, token, s)
+    token = _sign_in(db, user, request, response, s)
     return {"user": me_json(user), "token": token}
+
+
+@router.post("/auth/demo-login")
+def demo_login(body: DemoLoginIn, request: Request, response: Response, db: Session = Depends(get_write_db)):
+    """One-click sign-in used by the evaluation-mode role cards. Disabled outside demo mode."""
+    s = request.app.state.settings
+    if not s.demo_login or s.is_production:
+        raise HTTPException(404, "Demo sign-in is not enabled.")
+    ip = request.client.host if request.client else "?"
+    allowed, retry_after = request.app.state.limiter.is_allowed(f"demo-login:{ip}", 120, 3600)
+    if not allowed:
+        raise HTTPException(429, "Too many demo sign-in attempts.", headers={"Retry-After": str(retry_after)})
+
+    canonical = next((account for account in demo_accounts(s) if account["role"] == body.role), None)
+    user = None
+    if canonical:
+        user = db.scalar(select(User).where(User.email == canonical["email"].lower()))
+    if not user or not user.active:
+        user = db.scalar(select(User).where(User.role == body.role, User.status == "active").order_by(User.id))
+    if not user or user.role not in ALL_ROLES:
+        raise HTTPException(404, "Demo account is not available.")
+
+    _sign_in(db, user, request, response, s, "Signed in (demo)", f"Demo role: {body.role}.")
+    return {"user": me_json(user)}
 
 
 @router.post("/auth/logout")

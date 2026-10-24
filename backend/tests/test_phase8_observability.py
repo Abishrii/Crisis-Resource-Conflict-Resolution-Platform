@@ -112,12 +112,14 @@ def test_prometheus_metrics_access_control():
     # 2. Internal loopback caller is granted access without token
     mock_req_int = MagicMock()
     mock_req_int.client.host = "127.0.0.1"
+    mock_req_int.app.state.settings.env = "test"
     verify_metrics_access(mock_req_int, mock_db)
 
     # 3. External IP with valid ADMIN token is granted access
     import jwt
 
     settings = MagicMock()
+    settings.env = "test"
     settings.secret_key = "test-secret-key-at-least-32-bytes-long!"
     settings.cookie_name = "resq_session"
     mock_req_ext.app.state.settings = settings
@@ -126,7 +128,7 @@ def test_prometheus_metrics_access_control():
 
     admin_user = MagicMock()
     admin_user.active = True
-    admin_user.role = "ADMIN"
+    admin_user.role = "admin"
     mock_db.get.return_value = admin_user
 
     verify_metrics_access(mock_req_ext, mock_db)
