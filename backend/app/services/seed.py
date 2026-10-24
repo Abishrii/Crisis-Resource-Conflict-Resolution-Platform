@@ -37,7 +37,6 @@ DEMO_USERS = [
     ("Aditi Rao", "aditi@example.org", "Western Response Collective", "admin"),
     ("Arjun Nair", "arjun@example.org", "Southern Response Collective", "crisis-manager"),
     ("Meera Iyer", "meera@example.org", "Regional Trauma Consortium", "resource-coordinator"),
-    ("Rohan Das", "rohan@example.org", "Eastern Relief Network", "viewer"),
     ("Demo Help Seeker", "seeker@example.org", "Community", "help-seeker"),
 ]
 
@@ -59,7 +58,6 @@ def demo_accounts(settings: Settings | None = None) -> list[dict]:
             "role": "resource-coordinator",
             "password": demo_pw,
         },
-        {"name": "Field Viewer", "email": "viewer@resqsync.org", "role": "viewer", "password": demo_pw},
         {"name": "Citizen Seeker", "email": "citizen@resqsync.org", "role": "help-seeker", "password": demo_pw},
     ]
 
@@ -76,20 +74,41 @@ def seed_users(db: Session, settings: Settings) -> None:
     db.flush()
 
 
-def bootstrap_admin(db: Session, settings: Settings) -> None:
-    if db.scalar(select(func.count(User.id))):
-        return
-    if settings.bootstrap_admin_email and settings.bootstrap_admin_password:
-        db.add(
-            User(
-                name=settings.bootstrap_admin_name,
-                email=settings.bootstrap_admin_email,
-                role="admin",
-                organization="Administration",
-                password_hash=hash_password(settings.bootstrap_admin_password),
+def seed_demo_login_accounts(db: Session, settings: Settings) -> None:
+    """Ensure the evaluation-mode role cards always have an account to sign in to."""
+    for account in demo_accounts(settings):
+        email = account["email"].lower()
+        if db.scalar(select(User.id).where(User.email == email)) is None:
+            db.add(
+                User(
+                    name=account["name"],
+                    email=email,
+                    role=account["role"],
+                    organization="Demo",
+                    password_hash=hash_password(account["password"]),
+                )
             )
+    db.flush()
+
+
+def bootstrap_admin(db: Session, settings: Settings) -> None:
+    if not settings.bootstrap_admin_email or not settings.bootstrap_admin_password:
+        return
+    if db.scalar(select(User.id).where(User.role == "admin")) is not None:
+        return
+    email = settings.bootstrap_admin_email.lower()
+    if db.scalar(select(User.id).where(User.email == email)) is not None:
+        return
+    db.add(
+        User(
+            name=settings.bootstrap_admin_name,
+            email=email,
+            role="admin",
+            organization="Administration",
+            password_hash=hash_password(settings.bootstrap_admin_password),
         )
-        db.flush()
+    )
+    db.flush()
 
 
 def seed_workspace(db: Session) -> None:
@@ -500,6 +519,8 @@ def seed_all(db: Session, settings: Settings) -> None:
         seed_users(db, settings)
         if not db.scalar(select(func.count(Crisis.id))) and not db.scalar(select(func.count(Resource.id))):
             seed_workspace(db)
+    elif settings.demo_login and not settings.is_production:
+        seed_demo_login_accounts(db, settings)
     db.commit()
 
 

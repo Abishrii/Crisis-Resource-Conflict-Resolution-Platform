@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const { readFileSync, existsSync, mkdirSync } = require("node:fs");
 const { createServer } = require("node:http");
 const { resolve, extname } = require("node:path");
-const { chromium: playwright } = require("playwright-chromium");
+const { chromium: playwright } = require("playwright-core");
 
 // Use a packaged headless binary and shared libraries in minimal CI containers.
 process.env.AWS_EXECUTION_ENV = `AWS_Lambda_nodejs${process.versions.node.split(".")[0]}.x`;

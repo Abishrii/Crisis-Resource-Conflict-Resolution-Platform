@@ -35,6 +35,17 @@ UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
 class SecurityMiddleware(BaseHTTPMiddleware):
     """Reject cross-site state changes and add baseline security headers."""
 
+    BASE_CSP = (
+        "default-src 'self'; script-src 'self'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com data:; "
+        "img-src 'self' data: blob: https://images.pexels.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org; "
+        "media-src 'self' https://videos.pexels.com; connect-src 'self'; object-src 'none'; "
+        "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    )
+    # The standalone archive source embeds its controller inline; only relax that one static page.
+    ARCHIVE_CSP = BASE_CSP.replace("script-src 'self';", "script-src 'self' 'unsafe-inline';")
+
     async def dispatch(self, request: Request, call_next):
         if request.method in UNSAFE:
             origin = request.headers.get("origin")
@@ -47,9 +58,10 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "same-origin")
+        archive_page = request.url.path.rstrip("/").endswith("/archive/index.html")
         response.headers.setdefault(
             "Content-Security-Policy",
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://images.pexels.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+            self.ARCHIVE_CSP if archive_page else self.BASE_CSP,
         )
         response.headers.setdefault(
             "Permissions-Policy",
@@ -188,7 +200,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.db = database
     app.state.hub = EventHub(settings.redis_url)
-    app.state.throttle = LoginThrottle()
+    app.state.throttle = LoginThrottle(settings.redis_url, settings.login_max_failures, settings.login_window_seconds)
     app.state.limiter = RateLimiter(settings.redis_url)
     app.state.delivery_service = delivery_svc
     app.state.outbox_worker = worker

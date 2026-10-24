@@ -112,7 +112,7 @@ def test_resolving_crisis_releases_its_assignments(manager):
     )  # resolved incidents leave the queue
 
 
-def test_crisis_create_validation_and_permissions(manager, coordinator, viewer):
+def test_crisis_create_validation_and_permissions(manager, coordinator):
     body = {
         "title": "Test flood",
         "city": "Patna",
@@ -125,7 +125,6 @@ def test_crisis_create_validation_and_permissions(manager, coordinator, viewer):
         "lng": 85.1,
     }
     assert coordinator.post("/api/crises", json=body).status_code == 403
-    assert viewer.post("/api/crises", json=body).status_code == 403
     assert manager.post("/api/crises", json={**body, "lat": 60}).status_code == 400
     assert manager.post("/api/crises", json={**body, "severity": 9}).status_code == 422
     assert manager.post("/api/crises", json={**body, "category": "Zombies"}).status_code == 400
@@ -205,8 +204,8 @@ def test_concurrent_assignments_never_overallocate(app, client):
     assert kit["used"] <= kit["total"]
 
 
-def test_messages_threads_and_notifications(manager, viewer):
-    assert viewer.post("/api/messages", json={"channel": "network", "text": "hello"}).status_code == 403
+def test_messages_threads_and_notifications(manager, coordinator, seeker):
+    assert seeker.post("/api/messages", json={"channel": "network", "text": "hello"}).status_code == 403
     assert manager.post("/api/messages", json={"channel": "C-NOPE", "text": "hello"}).status_code == 400
     assert manager.post("/api/messages", json={"channel": "C-MUM", "text": "Boats on the way"}).status_code == 201
     s = snap(manager)
@@ -215,15 +214,15 @@ def test_messages_threads_and_notifications(manager, viewer):
     assert any(not n["read"] for n in s["notifications"])
     manager.post("/api/notifications/read")
     assert all(n["read"] for n in snap(manager)["notifications"])
-    assert any(not n["read"] for n in snap(viewer)["notifications"])  # read state is per user
+    assert any(not n["read"] for n in snap(coordinator)["notifications"])  # read state is per user
 
 
-def test_attachments_roundtrip_and_validation(manager, viewer):
+def test_attachments_roundtrip_and_validation(manager, coordinator, seeker):
     f = {"file": ("plan.txt", b"evacuation plan", "text/plain")}
     r = manager.post("/api/attachments", data={"channel": "network"}, files=f)
     assert r.status_code == 201, r.text
     aid = r.json()["id"]
-    dl = viewer.get(f"/api/attachments/{aid}/download")
+    dl = coordinator.get(f"/api/attachments/{aid}/download")
     assert dl.status_code == 200 and dl.content == b"evacuation plan"
     assert "attachment" in dl.headers["content-disposition"] and dl.headers["x-content-type-options"] == "nosniff"
     assert (
@@ -248,49 +247,49 @@ def test_attachments_roundtrip_and_validation(manager, viewer):
         ).status_code
         == 413
     )
-    assert viewer.post("/api/attachments", data={"channel": "network"}, files=f).status_code == 403
-    assert any(a["id"] == aid for a in snap(viewer)["attachments"])
+    assert seeker.post("/api/attachments", data={"channel": "network"}, files=f).status_code == 403
+    assert any(a["id"] == aid for a in snap(coordinator)["attachments"])
 
 
 def test_user_admin_rules(admin, manager):
     assert (
         manager.post(
-            "/api/users", json={"name": "X", "email": "x@example.org", "organization": "O", "role": "viewer"}
+            "/api/users", json={"name": "X", "email": "x@example.org", "organization": "O", "role": "help-seeker"}
         ).status_code
         == 403
     )
     r = admin.post(
         "/api/users",
-        json={"name": "Priya Sen", "email": "priya@example.org", "organization": "Relief", "role": "viewer"},
+        json={"name": "Priya Sen", "email": "priya@example.org", "organization": "Relief", "role": "help-seeker"},
     )
     assert r.status_code == 201 and r.json()["temporaryPassword"]
     temp = r.json()["temporaryPassword"]
     _c = login(admin.app if hasattr(admin, "app") else None, "priya@example.org", temp) if False else None
     assert (
         admin.post(
-            "/api/users", json={"name": "Dup", "email": "PRIYA@example.org", "organization": "O", "role": "viewer"}
+            "/api/users", json={"name": "Dup", "email": "PRIYA@example.org", "organization": "O", "role": "help-seeker"}
         ).status_code
         == 409
     )
     me_id = next(u for u in admin.get("/api/users").json() if u["email"] == "aditi@example.org")["id"]
-    assert admin.patch(f"/api/users/{me_id}", json={"role": "viewer"}).status_code == 409  # last admin
+    assert admin.patch(f"/api/users/{me_id}", json={"role": "crisis-manager"}).status_code == 409  # last admin
     assert admin.patch(f"/api/users/{me_id}", json={"status": "disabled"}).status_code == 409
     uid = r.json()["user"]["id"]
     assert admin.patch(f"/api/users/{uid}", json={"role": "crisis-manager"}).json()["user"]["role"] == "crisis-manager"
 
 
-def test_non_admin_sees_masked_emails(viewer, admin):
-    assert all("***" in u["email"] for u in snap(viewer)["users"] if u["email"] != "rohan@example.org")
+def test_non_admin_sees_masked_emails(coordinator, admin):
+    assert all("***" in u["email"] for u in snap(coordinator)["users"] if u["email"] != "meera@example.org")
     assert all("***" not in u["email"] for u in snap(admin)["users"])
 
 
-def test_simulation_is_pure_and_save_recomputes(manager, viewer):
+def test_simulation_is_pure_and_save_recomputes(manager, seeker):
     body = {"resourceId": "R-VENT", "capacity": 6, "cost": 5500, "weight": 65}
     before = snap(manager)
     r = manager.post("/api/simulations/run", json=body).json()
     assert r["demand"] == 15 and r["covered"] == 6 and [x["allocation"] for x in r["rows"]] == [4, 2, 0]
     assert snap(manager)["resources"] == before["resources"]  # nothing moved
-    assert viewer.post("/api/simulations", json=body).status_code == 403
+    assert seeker.post("/api/simulations", json=body).status_code == 403
     saved = manager.post("/api/simulations", json=body).json()
     assert saved["covered"] == 6 and saved["actor"] == "Arjun Nair"
     assert manager.post("/api/simulations/run", json={**body, "weight": 95}).status_code == 422
@@ -353,7 +352,7 @@ def test_reset_demo_admin_only_and_keeps_accounts(admin, manager):
     assert manager.post("/api/admin/reset-demo").status_code == 403
     assert admin.post("/api/admin/reset-demo").status_code == 200
     s = snap(admin)
-    assert len(s["crises"]) == 7 and len(s["users"]) == 5
+    assert len(s["crises"]) == 7 and len(s["users"]) == 4
 
 
 def test_revision_increments_on_change(manager):

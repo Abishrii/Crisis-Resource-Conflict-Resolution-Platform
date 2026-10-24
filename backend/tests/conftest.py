@@ -88,11 +88,6 @@ def coordinator(app, client):
 
 
 @pytest.fixture()
-def viewer(app, client):
-    return login(app, "rohan@example.org")
-
-
-@pytest.fixture()
 def seeker(app, client):
     return login(app, "seeker@example.org")
 

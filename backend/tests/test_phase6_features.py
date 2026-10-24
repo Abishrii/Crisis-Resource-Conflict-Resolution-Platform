@@ -238,7 +238,7 @@ def test_duplicate_request_detection(seeker, admin):
     assert code1 in req2_view["duplicateCodes"]
 
 
-def test_csv_exports(admin, viewer, seeker):
+def test_csv_exports(admin, coordinator, seeker):
     # 1. Crises CSV
     crises_csv = admin.get("/api/exports/crises.csv")
     assert crises_csv.status_code == 200
@@ -254,9 +254,9 @@ def test_csv_exports(admin, viewer, seeker):
     header = next(reader)
     assert "name" in header and "total" in header and "available" in header
 
-    # 3. Help Requests CSV - Viewer sees PII masked
+    # 3. Help Requests CSV - non-admin sees PII masked
     # Non-admin export
-    viewer_csv = viewer.get("/api/exports/help-requests.csv")
+    viewer_csv = coordinator.get("/api/exports/help-requests.csv")
     assert viewer_csv.status_code == 200
     reader = csv.reader(io.StringIO(viewer_csv.text))
     header = next(reader)
@@ -270,5 +270,5 @@ def test_csv_exports(admin, viewer, seeker):
     assert audit_admin.status_code == 200
     assert b"timestamp" in audit_admin.content
 
-    audit_viewer = viewer.get("/api/exports/audit.csv")
+    audit_viewer = coordinator.get("/api/exports/audit.csv")
     assert audit_viewer.status_code in (401, 403)

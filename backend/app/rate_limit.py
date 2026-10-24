@@ -76,6 +76,27 @@ class RateLimiter:
             q.append(now)
             return True, 0
 
+    def is_blocked(self, key: str, max_requests: int, window_seconds: int) -> bool:
+        """Check whether a key has already reached its limit without recording a new attempt."""
+        if self._redis_client:
+            try:
+                now = time.time()
+                redis_key = f"rl:{key}"
+                pipe = self._redis_client.pipeline()
+                pipe.zremrangebyscore(redis_key, 0, now - window_seconds)
+                pipe.zcard(redis_key)
+                results = pipe.execute()
+                return results[1] >= max_requests
+            except Exception as e:
+                log.error("Redis rate limit error: %s. Falling back to memory.", e)
+
+        now = time.monotonic()
+        with self._lock:
+            q = self._memory_store[key]
+            while q and now - q[0] > window_seconds:
+                q.popleft()
+            return len(q) >= max_requests
+
     def reset(self, key: str) -> None:
         """Reset a rate limit key (e.g. for testing)."""
         with self._lock:

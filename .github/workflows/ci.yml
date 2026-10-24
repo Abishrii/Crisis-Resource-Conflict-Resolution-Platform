@@ -110,6 +110,10 @@ jobs:
           node scripts/sync-archive.cjs
           git diff --exit-code src/archive-document.ts src/archive-controller.ts
 
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
+
       - name: Build frontend
         working-directory: frontend
         run: npm run build

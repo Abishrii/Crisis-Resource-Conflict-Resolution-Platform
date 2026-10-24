@@ -136,13 +136,12 @@ const go = async (page, module) => { await page.evaluate((m) => document.querySe
     ok("simulation saved", await waitText(mgr, "#workToast", /Simulation saved/));
 
     // ---------- permissions are enforced by the server, not just the UI ----------
-    const viewer = await newUser(browser, "viewer");
-    await login(viewer, "rohan@example.org");
-    await waitText(viewer, "#workspaceContent", /Active incidents/);
-    const denied = await viewer.evaluate(async () => (await fetch("/api/crises", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: "x", city: "x", region: "x", category: "Flood", severity: 1, status: "active", population: 1, lat: 20, lng: 80 }) })).status);
-    ok("viewer cannot create crises even by calling the API directly (403)", denied === 403, String(denied));
-    ok("viewer sees buttons disabled", await viewer.evaluate(() => { const b = document.querySelector('[data-quick="crisis"]'); return b && b.disabled; }));
-    ok("viewer has no Request desk button", await viewer.evaluate(() => document.querySelector("#openDeskBtn").hidden));
+    const coordRead = await newUser(browser, "coordinator");
+    await login(coordRead, "meera@example.org");
+    await waitText(coordRead, "#workspaceContent", /Active incidents/);
+    const denied = await coordRead.evaluate(async () => (await fetch("/api/crises", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: "x", city: "x", region: "x", category: "Flood", severity: 1, status: "active", population: 1, lat: 20, lng: 80 }) })).status);
+    ok("coordinator cannot create crises even by calling the API directly (403)", denied === 403, String(denied));
+    ok("coordinator sees crisis buttons disabled", await coordRead.evaluate(() => { const b = document.querySelector('[data-quick="crisis"]'); return b && b.disabled; }));
 
     // ---------- help seeker flow across four people ----------
     const seeker = await newUser(browser, "seeker");
@@ -185,7 +184,7 @@ const go = async (page, module) => { await page.evaluate((m) => document.querySe
     ok("manager resolves; unit returns to the pool", await (async () => { await sleep(800); const a = await mgr.evaluate(async () => (await (await fetch("/api/resources/R-AMB")).json())); return a.used === 4; })());
     await shot(seeker, "/tmp/e2e/shots/06-seeker-resolved.png");
 
-    const pages = [guest, mgr, admin, viewer, seeker, coord];
+    const pages = [guest, mgr, admin, coordRead, seeker, coord];
     const errs = pages.flatMap((p) => (p.errors || []).map((e) => `${p.label}: ${e}`));
     ok("no browser console/page errors during the whole run", errs.length === 0, errs.slice(0, 5).join(" | "));
   } catch (e) {
