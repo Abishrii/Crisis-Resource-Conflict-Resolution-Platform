@@ -42,4 +42,5 @@ _incoming/
 *.zip
 *.tar.gz
 .kilo/
+.commandcode/
 .ruff_cache/

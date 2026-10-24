@@ -1962,11 +1962,12 @@ export function initializeArchive() {
         dup_warning_desc: "हाल ही में दर्ज अनुरोध से मेल खाता है। प्रेषण से पहले पुष्टि करें।"
       }
     };
-    let currentLang = localStorage.getItem("resqsync_lang") || "en";
+    let currentLang = "en";
+    try { currentLang = localStorage.getItem("resqsync_lang") || "en"; } catch { /* Storage unavailable. */ }
     const t = (k) => (I18N[currentLang] && I18N[currentLang][k]) || (I18N.en && I18N.en[k]) || k;
     function toggleLang() {
       currentLang = currentLang === "en" ? "hi" : "en";
-      localStorage.setItem("resqsync_lang", currentLang);
+      try { localStorage.setItem("resqsync_lang", currentLang); } catch { /* Session-only preference. */ }
       syncAuthUI();
       if (session && session.role === "seeker") renderRoleWorkspace();
       if (body.classList.contains("login-open")) renderLogin();
@@ -2187,14 +2188,14 @@ export function initializeArchive() {
       $(".login-note").textContent=t("signin_note")+(hasDemoMode()?" "+t("demo_mode_note"):"");
       const privacyBtn=$(".login-privacy"); if(privacyBtn) privacyBtn.textContent=t("privacy_notice");
     }
-    async function openLogin(mode="signin"){
+    function openLogin(mode="signin"){
       if(introActive) finishIntro({restoreFocus:false});
-      if(!meta) await loadMeta();
       const login=$("#login");
       renderLogin(mode);
       login.classList.add("is-open"); login.inert=false; login.setAttribute("aria-hidden","false");
       body.classList.add("login-open");
       requestAnimationFrame(()=>{ const first=$("#roleGrid input"); if(first) first.focus(); });
+      if(!meta) loadMeta().then(()=>{ if(mode==="signin" && body.classList.contains("login-open") && $("#loginForm")) renderLogin("signin"); });
     }
     function closeLogin(focusBack=true){
       const login=$("#login"); if(!login.classList.contains("is-open")) return;
