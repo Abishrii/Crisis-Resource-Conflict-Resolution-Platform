@@ -74,14 +74,7 @@ def main():
         seeker_token = seeker_login.json()["token"]
         seeker_headers = {"Authorization": f"Bearer {seeker_token}"}
 
-        viewer_login = client.post(
-            "/api/auth/login",
-            json={"email": "rohan@example.org", "password": "Resqsync#2026"},
-        )
-        assert viewer_login.status_code == 200, (
-            f"Viewer login failed: {viewer_login.text}"
-        )
-        viewer_headers = {"Authorization": f"Bearer {viewer_login.json()['token']}"}
+        viewer_headers = coord_headers  # non-admin account used for PII-masking checks
 
         log("Role authentication successful.")
 

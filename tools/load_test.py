@@ -26,7 +26,6 @@ ACCOUNTS = [
     "aditi@example.org",  # Admin
     "meera@example.org",  # Coordinator
     "arjun@example.org",  # Manager
-    "rohan@example.org",  # Viewer
     "seeker@example.org",  # Citizen/Seeker
 ]
 

@@ -52,7 +52,6 @@ def run_tests():
         "admin": "aditi@example.org",
         "crisis-manager": "arjun@example.org",
         "resource-coordinator": "meera@example.org",
-        "viewer": "rohan@example.org",
         "help-seeker": "seeker@example.org"
     }
     
@@ -162,16 +161,16 @@ def run_tests():
 
     # Step J: Role Authorization Matrix & RBAC Enforcement
     print_header("5. Testing Role Authorization Enforcement (Security Guardrails)")
-    viewer_sess = sessions["viewer"]
+    viewer_sess = sessions["resource-coordinator"]
     
-    # 1. Viewer cannot create crises (should return 403)
+    # 1. Coordinator cannot create crises (should return 403)
     bad_crisis = viewer_sess.post(f"{BASE_BACKEND}/api/crises", json={
         "title": "Unauthorized Crisis", "city": "Goa", "region": "Goa", 
         "category": "Flood", "severity": 1, "status": "active", 
         "population": 1, "lat": 15.0, "lng": 73.0
     })
-    print(f"  [Test 1] Viewer tries creating crisis -> HTTP {bad_crisis.status_code} ({bad_crisis.text.strip()})")
-    assert bad_crisis.status_code == 403, f"Expected 403 for viewer, got {bad_crisis.status_code}"
+    print(f"  [Test 1] Coordinator tries creating crisis -> HTTP {bad_crisis.status_code} ({bad_crisis.text.strip()})")
+    assert bad_crisis.status_code == 403, f"Expected 403 for coordinator, got {bad_crisis.status_code}"
 
     # 2. Coordinator cannot approve crisis manager priority overrides (should return 403)
     bad_approve = coord_sess.post(f"{BASE_BACKEND}/api/allocations/approve/R-VENT", json={})

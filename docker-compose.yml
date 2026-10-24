@@ -4,7 +4,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-resqsync}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -14,8 +14,20 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    ports:
-      - "5432:5432"
+    # Intentionally not published to the host. Use `docker compose exec postgres psql` for access.
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   api:
     build:
@@ -25,15 +37,25 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-resqsync}
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-production-min-32-chars-resqsync}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-resqsync}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (32+ random characters)}
       ENV: ${ENV:-production}
+      # Secure cookies require HTTPS. Set this to true when SITE_ADDRESS is a real domain with TLS.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      DEMO_LOGIN: ${DEMO_LOGIN:-false}
       UPLOAD_DIR: /app/uploads
       FRONTEND_DIST: /app/frontend/dist
-      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
-      DEMO_PASSWORD: ${DEMO_PASSWORD:-Resqsync#2026}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-}
       ALLOW_DEMO_RESET: ${ALLOW_DEMO_RESET:-false}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-Crisis Director}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?Set BOOTSTRAP_ADMIN_EMAIL in .env}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set BOOTSTRAP_ADMIN_PASSWORD in .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
     volumes:
       - uploads_data:/app/uploads
     healthcheck:
@@ -51,6 +73,9 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    environment:
+      # ":80" serves plain HTTP. Use a real domain (e.g. resqsync.example.org) to enable automatic HTTPS.
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
     ports:
       - "80:80"
       - "443:443"
@@ -58,15 +83,10 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:80/api/health || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
 
 volumes:
   postgres_data:
+  redis_data:
   uploads_data:
   caddy_data:
   caddy_config:

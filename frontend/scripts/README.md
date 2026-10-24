@@ -11,6 +11,9 @@ The menu's Watch intro control replays it. `?skipIntro=1` opens directly.
 `node scripts/sync-archive.cjs` to regenerate the native application markup and
 controller in `src/archive-document.ts` and `src/archive-controller.ts`.
 
+`npm ci` installs the Playwright/Chromium helpers used by the browser checks, and
+`npm run typecheck` validates the TypeScript sources.
+
 Run `node scripts/archive-startup-check.cjs` for controller-level regressions:
 
 - Immediate workspace initialization without any media.

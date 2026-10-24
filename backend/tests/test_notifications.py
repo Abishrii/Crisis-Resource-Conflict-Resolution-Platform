@@ -180,15 +180,15 @@ def test_phone_verification_otp_flow(seeker):
     assert r_otp2.status_code == 200
 
 
-def test_outbox_endpoints_and_rbac(admin, viewer, seeker):
+def test_outbox_endpoints_and_rbac(admin, coordinator, seeker):
     # 1. Admin can access /api/outbox
     r_admin = admin.get("/api/outbox")
     assert r_admin.status_code == 200
     assert "messages" in r_admin.json()
 
-    # 2. Viewer cannot access /api/outbox (403)
-    r_viewer = viewer.get("/api/outbox")
-    assert r_viewer.status_code == 403
+    # 2. Coordinator cannot access /api/outbox (403)
+    r_coordinator = coordinator.get("/api/outbox")
+    assert r_coordinator.status_code == 403
 
     # 3. Seeker cannot access /api/outbox (403)
     r_seeker = seeker.get("/api/outbox")

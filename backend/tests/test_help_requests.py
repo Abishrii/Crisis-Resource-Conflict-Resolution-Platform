@@ -72,11 +72,6 @@ def test_seeker_sees_only_own_requests(app, seeker, client):
     assert desk(client)["resources"] == [] and desk(client)["audit"] == []
 
 
-def test_viewer_cannot_raise_or_see_requests(viewer):
-    assert viewer.post("/api/help-requests", json=BODY).status_code == 403
-    assert viewer.get("/api/help-requests").json() == []
-
-
 def test_photo_validation(seeker):
     assert seeker.post("/api/help-requests", json={**BODY, "photo": "data:text/html;base64,PGI+"}).status_code == 400
     fake = base64.b64encode(b"not really a png at all").decode()
